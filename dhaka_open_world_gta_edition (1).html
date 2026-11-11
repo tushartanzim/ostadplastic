@@ -1,0 +1,2959 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ওস্তাদ বাঁয়ে প্লাস্টিক! - Dhaka Open World (GTA Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #090d16;
+        }
+        #gameCanvasContainer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .hud-glass {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        #radarCanvas {
+            border-radius: 50%;
+            border: 3px solid #38bdf8;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.45), inset 0 0 15px rgba(0, 0, 0, 0.85);
+            background: #0b1322;
+        }
+        .subtitle-toast {
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- 3D WebGL Viewport -->
+    <div id="gameCanvasContainer"></div>
+
+    <!-- TOP-LEFT: Authentic Dhaka Thana & Route Compass HUD -->
+    <div id="topHud" class="fixed top-3 left-3 right-3 z-20 flex flex-wrap justify-between items-start gap-2 pointer-events-none">
+        <div class="hud-glass px-3.5 py-2 rounded-2xl flex items-center gap-4 shadow-xl pointer-events-auto">
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-amber-400 font-bold">রাস্তার ক্ষতি (Plastic Damage)</div>
+                <div id="damageScoreEl" class="text-lg md:text-xl font-extrabold text-amber-300">৳ ০</div>
+            </div>
+            <div class="h-7 w-[1px] bg-slate-700"></div>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">দৈনিক জমা (Fares)</div>
+                <div id="pocketMoneyEl" class="text-lg md:text-xl font-extrabold text-emerald-300">৳ ২৫০</div>
+            </div>
+            <div class="h-7 w-[1px] bg-slate-700"></div>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-sky-400 font-bold">যাত্রী ও সার্ভিস</div>
+                <div class="flex items-center gap-1.5">
+                    <span id="paxCountEl" class="text-sm font-bold text-white">১৮/৫০</span>
+                    <span id="serviceBadgeEl" class="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white font-bold">লোকাল</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Location & Next Thana Compass (Based on Attached Dhaka City Map) -->
+        <div class="hud-glass px-4 py-1.5 rounded-full text-center shadow-lg border border-sky-500/30">
+            <div class="flex items-center gap-2 justify-center">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span id="districtNameEl" class="text-xs md:text-sm font-bold text-sky-300">তেজগাঁও - ফার্মগেট (Tejgaon Thana • Ward 38)</span>
+            </div>
+            <div id="nextLandmarkHintEl" class="text-[10px] text-amber-300 font-semibold">উত্তরে মহাখালী / গুলশান • দক্ষিণে রমনা / মতিঝিল</div>
+        </div>
+
+        <!-- Top-Right Action Controls -->
+        <div class="flex items-center gap-1.5 pointer-events-auto">
+            <button onclick="toggleFullMapModal()" class="hud-glass hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300 border border-emerald-500/40 transition shadow">
+                🗺️ ঢাকা ম্যাপ (M)
+            </button>
+            <button onclick="toggleGarageCamera()" id="garageBtnEl" class="hud-glass hover:bg-amber-900/60 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 border border-amber-500/40 transition shadow">
+                🚌 বাস গ্যারাজ (V)
+            </button>
+            <button onclick="cycleBusLiveryQuick()" class="hud-glass hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold text-pink-300 border border-pink-500/30 transition shadow">
+                🎨 রঙ বদলান
+            </button>
+            <button onclick="toggleCameraView()" class="hud-glass hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold text-sky-300 border border-sky-500/30 transition shadow">
+                🎥 ক্যামেরা (C)
+            </button>
+            <button onclick="cycleTimeOfDay()" id="timeBtnEl" class="hud-glass hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-300 border border-amber-500/30 transition shadow">
+                ☀️ দুপুর
+            </button>
+            <button onclick="toggleMute()" id="muteBtnEl" class="hud-glass hover:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-bold text-white transition shadow">
+                🔊
+            </button>
+        </div>
+    </div>
+
+    <!-- GARAGE CUSTOMIZATION DRAWER -->
+    <div id="garagePanel" class="fixed top-16 right-3 z-30 hud-glass p-4 rounded-2xl w-80 border border-amber-500/40 shadow-2xl hidden">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-sm font-extrabold text-amber-300">🛠️ ওস্তাদের লোকাল বাস গ্যারাজ</h3>
+            <button onclick="toggleGarageCamera()" class="text-xs text-slate-400 hover:text-white">✕ বন্ধ</button>
+        </div>
+        <p class="text-[11px] text-slate-300 mb-2">মাউস ড্র্যাগ করে বাস চারপাশ থেকে দেখুন:</p>
+
+        <div class="text-[11px] font-bold text-sky-300 mb-1">১. বাসের কোম্পানি (Desi Livery):</div>
+        <div class="grid grid-cols-2 gap-1.5 mb-3">
+            <button onclick="setBusLivery(0)" class="bg-blue-900/70 hover:bg-blue-700 border border-blue-400/40 rounded-lg py-1.5 px-2 text-xs font-bold text-left">🔵 ভিক্টর ক্লাসিক</button>
+            <button onclick="setBusLivery(1)" class="bg-red-900/70 hover:bg-red-700 border border-red-400/40 rounded-lg py-1.5 px-2 text-xs font-bold text-left">🔴 রাইদা পরিবহন</button>
+            <button onclick="setBusLivery(2)" class="bg-emerald-900/70 hover:bg-emerald-700 border border-emerald-400/40 rounded-lg py-1.5 px-2 text-xs font-bold text-left">🟢 তুরাগ পরিবহন</button>
+            <button onclick="setBusLivery(3)" class="bg-amber-900/70 hover:bg-amber-700 border border-amber-400/40 rounded-lg py-1.5 px-2 text-xs font-bold text-left">🟡 সুপ্রভাত স্পেশাল</button>
+        </div>
+
+        <div class="text-[11px] font-bold text-sky-300 mb-1">২. পিছনের রিকশা/ট্রাক আর্ট বাণী:</div>
+        <div class="grid grid-cols-1 gap-1 mb-3">
+            <button onclick="setBusSlogan(0)" class="bg-slate-800 hover:bg-slate-700 rounded py-1 px-2 text-[11px] text-amber-200 text-left">"মায়ের দোয়া পরিবহন • কাছে আসলে বাঁশ"</button>
+            <button onclick="setBusSlogan(1)" class="bg-slate-800 hover:bg-slate-700 rounded py-1 px-2 text-[11px] text-amber-200 text-left">"হিংসা করবেন না, ওস্তাদ ঘুমাইতেছে"</button>
+            <button onclick="setBusSlogan(2)" class="bg-slate-800 hover:bg-slate-700 rounded py-1 px-2 text-[11px] text-amber-200 text-left">"সময় গেলে সাধন হবে না • বাপের রাস্তা"</button>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <span class="text-[11px] text-slate-300">বডির অবস্থা (পুটিং ও ঘষার দাগ):</span>
+            <button onclick="toggleDentVisuals()" id="dentBtnEl" class="bg-rose-700 hover:bg-rose-600 px-2.5 py-1 rounded text-[11px] font-bold">চালু আছে</button>
+        </div>
+    </div>
+
+    <!-- FULL-SCREEN DHAKA CITY CORPORATION THANA MAP MODAL (Matches Attached Image) -->
+    <div id="fullMapModal" class="fixed inset-0 z-40 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-3">
+        <div class="hud-glass border border-sky-500/40 rounded-2xl max-w-4xl w-full p-4 shadow-2xl flex flex-col max-h-[94vh]">
+            <div class="flex justify-between items-center mb-2">
+                <div>
+                    <h2 class="text-base md:text-lg font-extrabold text-sky-300">🗺️ ঢাকা সিটি কর্পোরেশন থানা ও ওয়ার্ড ম্যাপ (Dhaka City Real Thana Map)</h2>
+                    <p class="text-xs text-slate-300">আপনার দেওয়া ম্যাপ অনুযায়ী উত্তরা, পল্লবী, মিরপুর, ক্যান্টনমেন্ট, গুলশান, মোহাম্মদপুর, তেজগাঁও, ধানমন্ডি, রমনা, লালবাগ, কোতোয়ালি, সূত্রাপুর ও ডেমরা থানা। যেকোনো জায়গায় ক্লিক করলে বাস সেখানে চলে যাবে (Fast Travel)!</p>
+                </div>
+                <button onclick="toggleFullMapModal()" class="bg-rose-600 hover:bg-rose-500 px-3 py-1 rounded-lg text-xs font-bold">✕ বন্ধ করুন (M)</button>
+            </div>
+            <div class="relative flex-1 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+                <canvas id="fullDhakaMapCanvas" width="820" height="540" class="w-full h-auto max-h-[75vh] cursor-pointer"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM-CENTER: GTA-Style Subtitle Toast -->
+    <div id="subtitleBox" class="fixed bottom-28 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-0 translate-y-2 subtitle-toast max-w-xl w-[92%]">
+        <div class="hud-glass px-4 py-2 rounded-xl border-l-4 border-amber-400 shadow-2xl text-center">
+            <span id="speakerTagEl" class="text-xs font-extrabold uppercase tracking-wider text-amber-400 mr-1.5">[হেল্পার মনা]:</span>
+            <span id="subtitleTextEl" class="text-sm md:text-base font-bold text-white">"ওস্তাদ বাঁয়ে প্লাস্টিক! ডরাইয়েন না, চাপান!"</span>
+        </div>
+    </div>
+
+    <!-- BOTTOM-LEFT: GTA Rotating Mini-Map Radar -->
+    <div class="fixed bottom-3 left-3 z-20 flex items-end gap-3 pointer-events-none">
+        <div class="relative pointer-events-auto" title="ক্লিক করলে পুরো ঢাকা থানার ম্যাপ খুলবে">
+            <canvas id="radarCanvas" width="144" height="144" onclick="toggleFullMapModal()" class="cursor-pointer"></canvas>
+            <div class="absolute -top-2 left-1/2 -translate-x-1/2 bg-sky-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded">N</div>
+            <div class="absolute bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/90 px-2 py-0.5 rounded text-[9px] text-emerald-300 font-bold border border-emerald-500/30 whitespace-nowrap">
+                🟢 স্টপেজ • 🔵 মেট্রো পিলার
+            </div>
+        </div>
+
+        <!-- Speedometer & Heat Gauge -->
+        <div class="hud-glass p-2.5 rounded-2xl w-36 shadow-xl">
+            <div class="flex justify-between items-baseline">
+                <span id="speedNumEl" class="text-2xl font-black text-sky-400">0</span>
+                <span class="text-[10px] text-slate-400 font-bold">KM/H</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden my-1">
+                <div id="speedBarEl" class="h-full bg-gradient-to-r from-sky-400 via-amber-400 to-rose-500 w-0"></div>
+            </div>
+            <div class="flex justify-between items-center text-[10px] mt-1.5">
+                <span class="text-rose-400 font-bold">পাবলিক ক্ষোভ</span>
+                <span id="heatValEl" class="font-bold text-rose-300">0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                <div id="heatBarEl" class="h-full bg-rose-500 w-0 transition-all"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM-CENTER: Dipjol & Helper Soundboard Bar -->
+    <div class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 hidden md:flex items-center gap-1.5 hud-glass px-3 py-1.5 rounded-2xl shadow-xl">
+        <button onclick="triggerMemeDialogue(1)" class="bg-amber-500/20 hover:bg-amber-500/40 border border-amber-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-amber-200 transition">
+            [1] 🔥 আহো ভাতিজা!
+        </button>
+        <button onclick="triggerMemeDialogue(2)" class="bg-sky-500/20 hover:bg-sky-500/40 border border-sky-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-sky-200 transition">
+            [2] 👋 বাঁয়ে প্লাস্টিক!
+        </button>
+        <button onclick="triggerMemeDialogue(3)" class="bg-rose-500/20 hover:bg-rose-500/40 border border-rose-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-rose-200 transition">
+            [3] 💥 সৌদির টিকেট!
+        </button>
+        <button onclick="triggerMemeDialogue(4)" class="bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-emerald-200 transition">
+            [4] 🚓 সানডে মানডে ক্লোজ!
+        </button>
+        <button onclick="toggleSittingService()" class="bg-purple-500/20 hover:bg-purple-500/40 border border-purple-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-purple-200 transition">
+            [G] 🚪 সিটিং/লোকাল
+        </button>
+        <button onclick="triggerHydraulicHorn()" class="bg-orange-500/20 hover:bg-orange-500/40 border border-orange-400/40 px-2.5 py-1 rounded-xl text-xs font-bold text-orange-200 transition">
+            [H] 📯 জাহাজের হর্ন
+        </button>
+    </div>
+
+    <!-- BOTTOM-RIGHT: Mobile Touch Controls + Desktop Guide -->
+    <div class="fixed bottom-3 right-3 z-20 flex flex-col items-end gap-2">
+        <div class="hidden lg:block hud-glass px-3 py-1.5 rounded-xl text-[11px] text-slate-300">
+            <span class="text-sky-300 font-bold">WASD / Arrows:</span> ৩৬০° ড্রাইভ ও মোড় ঘোরানো • <span class="text-amber-300 font-bold">Space:</span> ব্রেক/ড্রিফট • <span class="text-emerald-300 font-bold">Shift:</span> কেরোসিন বুস্ট • <span class="text-pink-300 font-bold">M:</span> ঢাকার ম্যাপ
+        </div>
+        <div class="flex md:hidden items-center gap-2">
+            <button id="btnLeft" class="w-12 h-12 rounded-2xl hud-glass active:bg-sky-500/40 text-xl font-bold flex items-center justify-center">◀</button>
+            <button id="btnRight" class="w-12 h-12 rounded-2xl hud-glass active:bg-sky-500/40 text-xl font-bold flex items-center justify-center">▶</button>
+            <button id="btnBrake" class="w-12 h-12 rounded-2xl bg-rose-600/80 text-xs font-bold flex items-center justify-center">ব্রেক</button>
+            <button id="btnGas" class="w-14 h-14 rounded-2xl bg-emerald-600/90 text-xs font-extrabold flex items-center justify-center">টানুন</button>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. REAL DHAKA CITY CORPORATION THANA & WARD MAP DATA (MATCHING ATTACHED MAP)
+        // ============================================================================
+        // North (Z = -1300: Abdullapur / Uttara / Moynartek) to South (Z = +1300: Sutrapur / Buriganga / Shyampur)
+        // West (X = -750: Turag River / Aminbazar / Gabtoli / Lalbag) to East (X = +750: Yusufganj / Sabujbag / Demra)
+        const WORLD_BOUND_X = 950;
+        const WORLD_BOUND_Z = 1450;
+
+        // Vertical North-South Corridors from the attached map:
+        // X = -550 : Mirpur Road / Gabtoli / Mohammadpur / Dhanmondi / Lalbag
+        // X = -220 : Begum Rokeya Sarani (Pallabi ➔ Mirpur 10/11/12/13/14 ➔ Shewrapara ➔ Agargaon)
+        // X = 0    : Central Spine (Uttara ➔ Airport ➔ Cantonment ➔ Tejgaon/Farmgate ➔ Ramna/Shahbag ➔ Kotwali/Sutrapur)
+        // X = 320  : Gulshan / Mohakhali / Shaheed Suhrawardy Ave / Rampura / Khilgaon / Motijheel / Demra
+        // X = 650  : Uttar Khan / Dakshin Khan / Yusufganj / Solmaid / Satarkul / Meradia / Sabujbag / Madartek
+        const GRID_X_COORDS = [-550, -220, 0, 320, 650];
+
+        // Horizontal East-West Connecting Roads across the Thanas:
+        const GRID_Z_COORDS = [-1200, -850, -500, -150, 200, 520, 820, 1120];
+
+        // Thana Polygons & Colors directly inspired by the attached Dhaka City Map
+        const DHAKA_THANAS = [
+            { name: "UTTARA THANA", bn: "উত্তরা থানা (উত্তরা মডেল টাউন, আব্দুল্লাহপুর, দক্ষিণখান)", x: 80, z: -1150, w: 720, d: 420, color: "#3d6b47" },
+            { name: "PALLABI THANA", bn: "পল্লবী থানা (বাউনিয়া, ভাসানটেক, ওয়ার্ড ২, ৩, ৫, ৬, ৮)", x: -450, z: -780, w: 480, d: 440, color: "#d48455" },
+            { name: "CANTONMENT", bn: "ক্যান্টনমেন্ট ও জিয়া আন্তর্জাতিক বিমানবন্দর (খিলক্ষেত, কালাচাঁদপুর)", x: 40, z: -680, w: 380, d: 520, color: "#76688a" },
+            { name: "MIRPUR THANA", bn: "মিরপুর থানা (গাবতলী, শেওড়াপাড়া, কাজীপাড়া, ওয়ার্ড ৭, ৯-১৪)", x: -460, z: -340, w: 440, d: 420, color: "#497a4b" },
+            { name: "GULSHান THANA", bn: "গুলশান ও বনানী থানা (মহাখালী, বারিধারা, ওয়ার্ড ১৮, ১৯, ২০, ২১)", x: 240, z: -220, w: 360, d: 440, color: "#e88b58" },
+            { name: "YUSUFGANJ / SOLMAID", bn: "ইউসুফগঞ্জ, সোলমাইদ ও সাতারকুল (বালু নদী তীর)", x: 640, z: -320, w: 420, d: 720, color: "#cf8352" },
+            { name: "MOHAMMADPUR", bn: "মোহাম্মদপুর থানা (আসাদগেট, শ্যামলী, ওয়ার্ড ৪০-৪৬)", x: -560, z: 80, w: 420, d: 340, color: "#c95b73" },
+            { name: "TEJGAON THANA", bn: "তেজগাঁও থানা (ফার্মগেট, কারওয়ান বাজার, ওয়ার্ড ৩৭-৩৯)", x: -60, z: 90, w: 340, d: 320, color: "#4e7d63" },
+            { name: "DHANMONDI", bn: "ধানমন্ডি থানা (পিলখানা, সায়েন্সল্যাব, নিউমার্কেট, ওয়ার্ড ৪৭-৫২)", x: -480, z: 460, w: 420, d: 360, color: "#e3824f" },
+            { name: "RAMNA THANA", bn: "রমনা থানা (শাহবাগ, ঢাকা বিশ্ববিদ্যালয়, মগবাজার, ওয়ার্ড ৫৩-৫৭)", x: -40, z: 480, w: 340, d: 340, color: "#789c72" },
+            { name: "MOTIJHEEL", bn: "মতিঝিল থানা (শাপলা চত্বর, রামপুরা, খিলগাঁও, ওয়ার্ড ২২-৩৬)", x: 260, z: 480, w: 320, d: 460, color: "#e07d50" },
+            { name: "SABUJBAG THANA", bn: "সবুজবাগ থানা (মেরাদিয়া, মাদারটেক, বাসাবো, গোড়ান)", x: 640, z: 380, w: 420, d: 420, color: "#494e85" },
+            { name: "LALBAG THANA", bn: "লালবাগ থানা (লালবাগ কেল্লা, আজিমপুর, কামরাঙ্গীরচর, ওয়ার্ড ৫৮-৬২)", x: -480, z: 820, w: 380, d: 320, color: "#765d85" },
+            { name: "KOTWALI THANA", bn: "কোতোয়ালি থানা (গুলিস্তান, সদরঘাট, বাবুবাজার, ওয়ার্ড ৬৩-৭৩)", x: -120, z: 860, w: 280, d: 320, color: "#54785b" },
+            { name: "SUTRAPUR THANA", bn: "সূত্রাপুর থানা (ওয়ারী, গেন্ডারিয়া, পোস্তগোলা ব্রিজ, ওয়ার্ড ৭৪-৮৩)", x: 140, z: 1020, w: 300, d: 380, color: "#d96868" },
+            { name: "DEMRA THANA", bn: "ডেমরা ও যাত্রাবাড়ী থানা (মুক্তি সরণি, কাজলা, শ্যামপুর, ওয়ার্ড ৮৪-৯০)", x: 560, z: 960, w: 480, d: 440, color: "#487052" }
+        ];
+
+        // 28 Authentic Landmarks & Bus Stops across the Dhaka City Map
+        const DHAKA_DISTRICTS = [
+            // North Zone (Z = -1200)
+            { name: "আব্দুল্লাহপুর ও বাউনিয়া (Abdullapur - Turag Bank)", x: -550, z: -1200, color: 0x38bdf8, hasRoundabout: false },
+            { name: "উত্তরা মডেল টাউন (Uttara House Building)", x: 0, z: -1200, color: 0x38bdf8, hasRoundabout: true },
+            { name: "উত্তরখান ও মৈনারটেক (Uttar Khan / Moynartek)", x: 650, z: -1200, color: 0x34d399, hasRoundabout: false },
+
+            // Upper-North Zone (Z = -850)
+            { name: "পল্লবী ও নবাবেরবাগ (Pallabi Ward 6)", x: -550, z: -850, color: 0xfb923c, hasRoundabout: false },
+            { name: "মিরপুর-১২ ও ভাসানটেক (Begum Rokeya Sarani)", x: -220, z: -850, color: 0xa78bfa, hasRoundabout: false },
+            { name: "জিয়া আন্তর্জাতিক বিমানবন্দর (Airport Intersection)", x: 0, z: -850, color: 0x38bdf8, hasRoundabout: false },
+            { name: "খিলক্ষেত ও কালাচাঁদপুর (Ward 17)", x: 320, z: -850, color: 0xc084fc, hasRoundabout: false },
+            { name: "দক্ষিণখান বাজার (Dakshin Khan)", x: 650, z: -850, color: 0x4ade80, hasRoundabout: false },
+
+            // Mid-North Zone (Z = -500)
+            { name: "গাবতলী ও আমিনবাজার ব্রিজ (Gabtoli Terminal)", x: -550, z: -500, color: 0xfacc15, hasRoundabout: false },
+            { name: "মিরপুর-১০ গোলচত্বর (Mirpur 10 Roundabout)", x: -220, z: -500, color: 0xf43f5e, hasRoundabout: true },
+            { name: "ঢাকা ক্যান্টনমেন্ট ও জাহাঙ্গীর গেট (Cantonment)", x: 0, z: -500, color: 0x818cf8, hasRoundabout: false },
+            { name: "গুলশান-২ গোলচত্বর (Gulshan-2 Ward 18/19)", x: 320, z: -500, color: 0x38bdf8, hasRoundabout: true },
+            { name: "ইউসুফগঞ্জ ও সোলমাইদ (Balu River Road)", x: 650, z: -500, color: 0xfb923c, hasRoundabout: false },
+
+            // Central-North Zone (Z = -150)
+            { name: "মোহাম্মদপুর ও শ্যামলী (Mohammadpur Ward 42)", x: -550, z: -150, color: 0xf472b6, hasRoundabout: false },
+            { name: "শেওড়াপাড়া ও আগারগাঁও (Begum Rokeya Sarani)", x: -220, z: -150, color: 0x34d399, hasRoundabout: false },
+            { name: "মহাখালী ও নিউ এয়ারপোর্ট রোড (Mahakhali)", x: 0, z: -150, color: 0xfacc15, hasRoundabout: false },
+            { name: "বনানী ও শহীদ সোহরাওয়ার্দী অ্যাভিনিউ (Ward 20/21)", x: 320, z: -150, color: 0xfb923c, hasRoundabout: false },
+            { name: "সাতারকুল ও বাড্ডা (Satarkul)", x: 650, z: -150, color: 0xfbbf24, hasRoundabout: false },
+
+            // Central Core (Z = 200)
+            { name: "ধানমন্ডি-২৭ ও আসাদগেট (Mirpur Road Ward 49)", x: -550, z: 200, color: 0xf97316, hasRoundabout: false },
+            { name: "তেজগাঁও ও ফার্মগেট (Farmgate / Karwan Bazar)", x: 0, z: 200, color: 0x22c55e, hasRoundabout: true },
+            { name: "রামপুরা ও খিলগাঁও (Rampura Ward 22/23)", x: 320, z: 200, color: 0x38bdf8, hasRoundabout: false },
+            { name: "মেরাদিয়া ও সবুজবাগ (Sabujbag Ward 26)", x: 650, z: 200, color: 0x818cf8, hasRoundabout: false },
+
+            // South-Central Zone (Z = 520)
+            { name: "সায়েন্সল্যাব, নিউমার্কেট ও পিলখানা (Dhanmondi Ward 52)", x: -550, z: 520, color: 0xef4444, hasRoundabout: false },
+            { name: "রমনা, শাহবাগ ও ঢাকা বিশ্ববিদ্যালয় (Ramna Ward 56/57)", x: 0, z: 520, color: 0x10b981, hasRoundabout: true },
+            { name: "মতিঝিল শাপলা চত্বর ও কমলাপুর (Motijheel Ward 31/32)", x: 320, z: 520, color: 0xfacc15, hasRoundabout: true },
+            { name: "মাদারটেক ও বাসাবো (Sabujbag)", x: 650, z: 520, color: 0x60a5fa, hasRoundabout: false },
+
+            // Old Dhaka Zone (Z = 820)
+            { name: "লালবাগ কেল্লা ও আজিমপুর (Lalbag Ward 60)", x: -550, z: 820, color: 0xa855f7, hasRoundabout: false },
+            { name: "কোতোয়ালি, গুলিস্তান ও সদরঘাট (Kotwali Ward 68)", x: 0, z: 820, color: 0x22c55e, hasRoundabout: false },
+            { name: "যাত্রাবাড়ী ও মুক্তি সরণি (Jatrabari / Demra)", x: 320, z: 820, color: 0xf97316, hasRoundabout: false },
+            { name: "ডেমরা, মানিকনগর ও কাজলা (Demra Thana)", x: 650, z: 820, color: 0x34d399, hasRoundabout: false },
+
+            // Extreme South Riverfront (Z = 1120)
+            { name: "সূত্রাপুর, ওয়ারী ও পোস্তগোলা ব্রিজ (Buriganga Bridge)", x: 0, z: 1120, color: 0xf43f5e, hasRoundabout: true },
+            { name: "শ্যামপুর ও নারায়ণগঞ্জ রোড (Shyampur Ward 89/90)", x: 320, z: 1120, color: 0x10b981, hasRoundabout: false }
+        ];
+
+        // Authentic Dhaka Lakes & Pukurs (Ponds) with Water Physics, Steps (Ghat), Boats & Lotuses
+        const DHAKA_WATER_BODIES = [
+            { name: "হাতিরঝিল লেক (Hatirjheel Lake)", x: 160, z: 100, w: 230, d: 190, type: "lake", hasBridge: true },
+            { name: "ধানমন্ডি রবীন্দ্র সরোবর লেক (Dhanmondi Lake)", x: -410, z: 350, w: 175, d: 210, type: "lake", hasBridge: true },
+            { name: "গুলশান-বনানী লেক (Gulshan-Banani Lake)", x: 165, z: -330, w: 185, d: 220, type: "lake", hasBridge: true },
+            { name: "রমনা পার্ক লেক (Ramna Lake)", x: 115, z: 460, w: 130, d: 145, type: "lake", hasBridge: false },
+            { name: "উত্তরা দিয়াবাড়ি লেক (Uttara Sector 15 Lake)", x: -110, z: -1040, w: 140, d: 170, type: "lake", hasBridge: false },
+            { name: "ঢাবি শহীদুল্লাহ হল পুকুর (DU Pukur)", x: -85, z: 590, w: 72, d: 78, type: "pukur", hasBridge: false },
+            { name: "মিরপুর মাজার রোড বড় পুকুর (Mirpur Pukur)", x: -380, z: -640, w: 85, d: 80, type: "pukur", hasBridge: false },
+            { name: "পুরান ঢাকা বংশাল পুকুর (Old Dhaka Pukur)", x: -115, z: 960, w: 68, d: 72, type: "pukur", hasBridge: false },
+            { name: "খিলগাঁও-বাসাবো দিঘী ও পুকুর (Basabo Pukur)", x: 475, z: 360, w: 88, d: 84, type: "pukur", hasBridge: false },
+            { name: "মোহাম্মদপুর বছিলা পুকুর (Mohammadpur Pukur)", x: -415, z: -35, w: 80, d: 76, type: "pukur", hasBridge: false }
+        ];
+
+        // ============================================================================
+        // 2. BUS LIVERIES, SLOGANS & GAME STATE
+        // ============================================================================
+        const BUS_LIVERIES = [
+            {
+                name: "ভিক্টর ক্লাসিক (Victor Classic)",
+                route: "সদরঘাট ⇄ গুলিস্তান ⇄ ফার্মগেট ⇄ মিরপুর ⇄ উত্তরা",
+                bodyHex: "#0284c7",
+                stripeHex: "#facc15",
+                lowerHex: "#1e3a8a",
+                roofHex: "#0f172a"
+            },
+            {
+                name: "রাইদা পরিবহন (Raida Paribahan)",
+                route: "পোস্তগোলা ⇄ যাত্রাবাড়ী ⇄ রামপুরা ⇄ কুড়িল ⇄ দিয়াবাড়ি",
+                bodyHex: "#dc2626",
+                stripeHex: "#f8fafc",
+                lowerHex: "#7f1d1d",
+                roofHex: "#1e293b"
+            },
+            {
+                name: "তুরাগ পরিবহন (Turag Paribahan)",
+                route: "যাত্রাবাড়ী ⇄ কমলাপুর ⇄ বাড্ডা ⇄ টঙ্গী ⇄ আব্দুল্লাহপুর",
+                bodyHex: "#059669",
+                stripeHex: "#fde047",
+                lowerHex: "#064e3b",
+                roofHex: "#0f172a"
+            },
+            {
+                name: "সুপ্রভাত স্পেশাল (Suprovat Special)",
+                route: "ভিক্টোরিয়া পার্ক ⇄ শাহবাগ ⇄ ফার্মগেট ⇄ গাজীপুর",
+                bodyHex: "#d97706",
+                stripeHex: "#22c55e",
+                lowerHex: "#78350f",
+                roofHex: "#1e293b"
+            }
+        ];
+
+        const BACK_SLOGANS = [
+            "মায়ের দোয়া পরিবহন • কাছে আসলে বাঁশ",
+            "হিংসা করবেন না, ওস্তাদ ঘুমাইতেছে",
+            "সময় গেলে সাধন হবে না • বাপের রাস্তা"
+        ];
+
+        const bus = {
+            x: 0,
+            z: 240, // Starts near Farmgate / Tejgaon
+            angle: 0,
+            speed: 0,
+            maxSpeed: 1.45,
+            accel: 0.026,
+            friction: 0.982,
+            steerAngle: 0,
+            tiltRoll: 0,
+            pitchAngle: 0,
+            liveryIdx: 0,
+            sloganIdx: 0,
+            showBattleScars: true,
+            isSittingService: false,
+            passengers: 18,
+            maxPassengers: 50,
+            damageScore: 0,
+            pocketMoney: 250,
+            heat: 0
+        };
+
+        const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
+        const camState = {
+            mode: 0, // 0: GTA Far Chase, 1: GTA Mid, 2: Top-Down, 3: Hood Cam
+            inGarage: false,
+            yawOffset: 0,
+            pitchOffset: 0.16,
+            isDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            shake: 0
+        };
+
+        let scene, camera, renderer, busMeshGroup, busBodyMatLeft, busBodyMatRight, busRearMat, busFrontBannerMat;
+        let busWheels = [];
+        let helperArmMesh, mudflapMesh, ledStripMeshes = [];
+        let metroTrains = [];
+        let aiVehicles = [];
+        let busStopZones = [];
+        let particles = [];
+        let collidableBuildings = [];
+        let solidObstacles = [];       // Metro pillars, roundabouts, overbridge stairs
+        let destructibleProps = [];    // Trees, Hawker Van Garis, Tong Tea Stalls
+        let pedestrians = [];          // Animated Dhaka street crowds & jaywalkers
+        let waterMeshes = [];          // Animated water surfaces & wooden boats
+        let waterSplashCooldown = 0;
+        let streetLightBulbs = [];
+        let weatherMode = 0;
+        let isMuted = false;
+        let audioCtx = null;
+        let subtitleTimer = null;
+
+        // ============================================================================
+        // 3. WEB AUDIO SYNTHESIS & SUBTITLE ENGINE
+        // ============================================================================
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSoundEffect(type) {
+            if (isMuted) return;
+            ensureAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'horn') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(145, now);
+                osc.frequency.exponentialRampToValueAtTime(112, now + 0.45);
+                gain.gain.setValueAtTime(0.24, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.48);
+                osc.start(now);
+                osc.stop(now + 0.48);
+            } else if (type === 'slap') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.12);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+                osc.start(now);
+                osc.stop(now + 0.14);
+            } else if (type === 'scrape') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(95, now);
+                osc.frequency.linearRampToValueAtTime(210, now + 0.22);
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+                osc.start(now);
+                osc.stop(now + 0.24);
+            } else if (type === 'bell') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.setValueAtTime(1175, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        function showGTASubtitle(speaker, text, colorHex = "#fbbf24") {
+            const box = document.getElementById('subtitleBox');
+            const speakerEl = document.getElementById('speakerTagEl');
+            const textEl = document.getElementById('subtitleTextEl');
+            if (!box || !speakerEl || !textEl) return;
+
+            speakerEl.textContent = `[${speaker}]:`;
+            speakerEl.style.color = colorHex;
+            textEl.textContent = `"${text}"`;
+
+            box.classList.remove('opacity-0', 'translate-y-2');
+            box.classList.add('opacity-100', 'translate-y-0');
+
+            if (subtitleTimer) clearTimeout(subtitleTimer);
+            subtitleTimer = setTimeout(() => {
+                box.classList.remove('opacity-100', 'translate-y-0');
+                box.classList.add('opacity-0', 'translate-y-2');
+            }, 3600);
+        }
+
+        function triggerMemeDialogue(id) {
+            if (id === 1) {
+                playSoundEffect('horn');
+                showGTASubtitle("ডিপজল চাচা", "আহো ভাতিজা আহো! রাস্তা কি তোর বাপের নাকি?!", "#fbbf24");
+                scatterNearbyCars(22);
+            } else if (id === 2) {
+                playSoundEffect('slap');
+                if (helperArmMesh) helperArmMesh.rotation.z = 1.2;
+                showGTASubtitle("হেল্পার মনা", "ঠাস! ঠাস! ওস্তাদ বাঁয়ে প্লাস্টিক! ডরাইয়েন না, ওরা নিজের রঙ বাঁচাইতে সাইড দিবো!", "#38bdf8");
+            } else if (id === 3) {
+                playSoundEffect('scrape');
+                showGTASubtitle("ডিপজল চাচা", "সৌদি আরবে যাওয়ার টিকেট কাইট্টা দিমু! খাইছি তোরে!", "#f87171");
+                scatterNearbyCars(25);
+            } else if (id === 4) {
+                playSoundEffect('bell');
+                if (bus.heat > 0 && bus.pocketMoney >= 50) {
+                    bus.pocketMoney -= 50;
+                    bus.heat = Math.max(0, bus.heat - 45);
+                    showGTASubtitle("ওস্তাদ ড্রাইভার", "মামা চা খাইয়েন! সানডে মানডে ক্লোজ কইরা দিলাম!", "#4ade80");
+                } else {
+                    showGTASubtitle("ওস্তাদ ড্রাইভার", "সানডে মানডে ক্লোজ কইরা দিমু! একদম চুপ!", "#4ade80");
+                }
+            }
+        }
+
+        function triggerHydraulicHorn() {
+            playSoundEffect('horn');
+            camState.shake = 0.22;
+            scatterNearbyCars(26);
+            showGTASubtitle("জাহাজের হাইড্রোলিক হর্ন", "পোঁওওওও! এই রিকশা, ভ্যানগাড়ি সাইড দে!", "#fb923c");
+        }
+
+        function toggleSittingService() {
+            bus.isSittingService = !bus.isSittingService;
+            playSoundEffect('slap');
+            const badge = document.getElementById('serviceBadgeEl');
+            if (bus.isSittingService) {
+                badge.textContent = "সিটিং (২x ভাড়া)";
+                badge.className = "text-[10px] px-2 py-0.5 rounded bg-rose-600 text-white font-bold";
+                showGTASubtitle("হেল্পার মনা", "গেট লক! এখন থেকে ডাইরেক্ট সিটিং সার্ভিস, ডাবল ভাড়া ছাড়া কেউ উঠবেন না!", "#f43f5e");
+            } else {
+                badge.textContent = "লোকাল";
+                badge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white font-bold";
+                showGTASubtitle("হেল্পার মনা", "ওস্তাদ আবার লোকাল বানায় দিলাম! এই ফার্মগেট, শাহবাগ, মিরপুর খালি সিট!", "#10b981");
+            }
+            refreshBusTextures();
+        }
+
+        function scatterNearbyCars(distLimit) {
+            aiVehicles.forEach(ai => {
+                const dx = ai.x - bus.x;
+                const dz = ai.z - bus.z;
+                const d = Math.hypot(dx, dz);
+                if (d < distLimit && d > 0.1) {
+                    ai.vx += (dx / d) * 0.35;
+                    ai.vz += (dz / d) * 0.35;
+                }
+            });
+            pedestrians.forEach(ped => {
+                const dx = ped.x - bus.x;
+                const dz = ped.z - bus.z;
+                const d = Math.hypot(dx, dz);
+                if (d < distLimit + 6 && d > 0.1) {
+                    ped.vx = (dx / d) * 0.28;
+                    ped.vz = (dz / d) * 0.28;
+                    ped.panicTimer = 90;
+                }
+            });
+        }
+
+        // ============================================================================
+        // 4. PROCEDURAL BANGLADESHI BUS LIVERY & SIGNBOARD TEXTURES
+        // ============================================================================
+        function createSignboardTexture(title, subtitle, bgHex = "#1e3a8a", textHex = "#ffffff", borderHex = "#facc15") {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 160;
+            const ctx = c.getContext('2d');
+
+            ctx.fillStyle = bgHex;
+            ctx.fillRect(0, 0, c.width, c.height);
+
+            ctx.strokeStyle = borderHex;
+            ctx.lineWidth = 8;
+            ctx.strokeRect(6, 6, c.width - 12, c.height - 12);
+
+            ctx.fillStyle = textHex;
+            ctx.font = "bold 34px 'Hind Siliguri', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(title, c.width / 2, 72);
+
+            ctx.fillStyle = borderHex;
+            ctx.font = "bold 22px 'Hind Siliguri', sans-serif";
+            ctx.fillText(subtitle, c.width / 2, 122);
+
+            return new THREE.CanvasTexture(c);
+        }
+
+        function createBusSideTexture(livery, isLeftDoorSide) {
+            const c = document.createElement('canvas');
+            c.width = 1024;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+
+            // Lower Skirt & Main Body
+            ctx.fillStyle = livery.bodyHex;
+            ctx.fillRect(0, 0, c.width, c.height);
+
+            ctx.fillStyle = livery.lowerHex;
+            ctx.fillRect(0, 330, c.width, 182);
+
+            // Dynamic Bangladeshi Local Bus Diagonal Swoosh Stripes
+            ctx.fillStyle = livery.stripeHex;
+            ctx.beginPath();
+            ctx.moveTo(0, 290);
+            ctx.lineTo(1024, 240);
+            ctx.lineTo(1024, 285);
+            ctx.lineTo(0, 335);
+            ctx.closePath();
+            ctx.fill();
+
+            // Top Route Header Strip
+            ctx.fillStyle = "#0f172a";
+            ctx.fillRect(0, 0, c.width, 66);
+            ctx.fillStyle = "#fde047";
+            ctx.font = "bold 28px 'Hind Siliguri', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(livery.route, c.width / 2, 44);
+
+            // Tinted Passenger Windows + 3 Metal Protection Grille Bars
+            const winCount = 7;
+            const startX = isLeftDoorSide ? 185 : 55;
+            const winW = 108;
+            const gap = 122;
+
+            for (let i = 0; i < winCount; i++) {
+                const wx = startX + i * gap;
+                if (wx + winW > 980) continue;
+
+                // Window Frame
+                ctx.fillStyle = "#090d16";
+                ctx.fillRect(wx - 4, 82, winW + 8, 132);
+
+                // Tinted Glass
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(wx, 86, winW, 124);
+
+                // Red Velvet Curtain
+                ctx.fillStyle = "#991b1b";
+                ctx.fillRect(wx, 86, 26, 124);
+
+                // Passenger Silhouette
+                ctx.fillStyle = "#0f172a";
+                ctx.beginPath();
+                ctx.arc(wx + 62, 148, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(wx + 42, 168, 40, 42);
+
+                // 3 Horizontal Metal Safety Grille Bars (জানালার গ্রিল)
+                ctx.strokeStyle = "#cbd5e1";
+                ctx.lineWidth = 3;
+                [158, 176, 194].forEach(gy => {
+                    ctx.beginPath();
+                    ctx.moveTo(wx, gy);
+                    ctx.lineTo(wx + winW, gy);
+                    ctx.stroke();
+                });
+            }
+
+            // Left Side Recessed Front Doorway
+            if (isLeftDoorSide) {
+                ctx.fillStyle = "#090d16";
+                ctx.fillRect(42, 82, 118, 395);
+                ctx.strokeStyle = "#facc15";
+                ctx.lineWidth = 4;
+                ctx.strokeRect(42, 82, 118, 395);
+            }
+
+            // Big Bold Bangla Bus Name on Side Body
+            ctx.save();
+            ctx.font = "bold 58px 'Hind Siliguri', sans-serif";
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = "#000000";
+            ctx.shadowBlur = 8;
+            ctx.textAlign = "center";
+            ctx.fillText(livery.name, c.width / 2 + 40, 395);
+            ctx.restore();
+
+            // Authentic Dhaka Battle Scars (Putty Patches & Plastic Car Scrape Marks)
+            if (bus.showBattleScars) {
+                // Grey Cement / Red Oxide Putty Blobs (পুটিং এর দাগ)
+                ctx.fillStyle = "rgba(148, 163, 184, 0.78)";
+                ctx.beginPath();
+                ctx.ellipse(310, 425, 58, 26, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "rgba(127, 29, 29, 0.75)";
+                ctx.beginPath();
+                ctx.ellipse(740, 365, 65, 28, -0.1, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Horizontal White/Silver Car Paint Scratch Lines
+                ctx.strokeStyle = "#e2e8f0";
+                ctx.lineWidth = 4;
+                for (let s = 0; s < 5; s++) {
+                    ctx.beginPath();
+                    ctx.moveTo(220 + s * 35, 435 + (s % 3) * 8);
+                    ctx.lineTo(490 + s * 45, 428 + (s % 2) * 10);
+                    ctx.stroke();
+                }
+            }
+
+            return new THREE.CanvasTexture(c);
+        }
+
+        function createBusRearTexture(livery, sloganText) {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+
+            ctx.fillStyle = livery.bodyHex;
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Folk Art Colorful Border
+            ctx.strokeStyle = "#facc15";
+            ctx.lineWidth = 14;
+            ctx.strokeRect(12, 12, 488, 488);
+
+            // Top Calligraphic Banner
+            ctx.fillStyle = "#064e3b";
+            ctx.fillRect(28, 28, 456, 68);
+            ctx.fillStyle = "#fde047";
+            ctx.font = "bold 30px 'Hind Siliguri', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("☪ মায়ের দোয়া • আল্লাহু আকবার ☪", 256, 72);
+
+            // Rear Window
+            ctx.fillStyle = "#0f172a";
+            ctx.fillRect(56, 112, 400, 125);
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 5;
+            ctx.strokeRect(56, 112, 400, 125);
+
+            // Back Slogan Panel
+            ctx.fillStyle = "#fef08a";
+            ctx.fillRect(36, 260, 440, 95);
+            ctx.fillStyle = "#991b1b";
+            ctx.font = "bold 25px 'Hind Siliguri', sans-serif";
+            ctx.fillText(sloganText, 256, 316);
+
+            // Number Plate
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(166, 380, 180, 58);
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "bold 22px 'Hind Siliguri', sans-serif";
+            ctx.fillText("ঢাকা মেট্রো-ব", 256, 405);
+            ctx.fillText("১১-৪২০৯", 256, 430);
+
+            return new THREE.CanvasTexture(c);
+        }
+
+        // ============================================================================
+        // 5. BUILD HIGH-DETAIL 3D BANGLADESHI LOCAL BUS (HINO AK1J / TATA)
+        // ============================================================================
+        function buildDetailedDesiBus() {
+            busMeshGroup = new THREE.Group();
+            const livery = BUS_LIVERIES[bus.liveryIdx];
+
+            const leftTex = createBusSideTexture(livery, true);
+            const rightTex = createBusSideTexture(livery, false);
+            const rearTex = createBusRearTexture(livery, BACK_SLOGANS[bus.sloganIdx]);
+
+            busBodyMatLeft = new THREE.MeshStandardMaterial({ map: leftTex, roughness: 0.35 });
+            busBodyMatRight = new THREE.MeshStandardMaterial({ map: rightTex, roughness: 0.35 });
+            busRearMat = new THREE.MeshStandardMaterial({ map: rearTex, roughness: 0.4 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: livery.roofHex, roughness: 0.6 });
+            const frontMat = new THREE.MeshStandardMaterial({ color: livery.bodyHex, roughness: 0.35 });
+
+            // Multi-material Box for Main Bus Chassis (W: 3.1m, H: 3.15m, L: 9.2m)
+            const bodyMats = [
+                busBodyMatRight, // +X Right side
+                busBodyMatLeft,  // -X Left side (with door)
+                roofMat,         // +Y Top
+                roofMat,         // -Y Bottom
+                frontMat,        // +Z Front face
+                busRearMat       // -Z Back folk art face
+            ];
+            const mainBody = new THREE.Mesh(new THREE.BoxGeometry(3.1, 3.15, 9.2), bodyMats);
+            mainBody.position.y = 2.15;
+            mainBody.castShadow = true;
+            mainBody.receiveShadow = true;
+            busMeshGroup.add(mainBody);
+
+            // Split Two-Piece Front Windshield + Red Velvet Jhalor
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.15 });
+            [-0.72, 0.72].forEach(wx => {
+                const pane = new THREE.Mesh(new THREE.BoxGeometry(1.26, 1.18, 0.08), glassMat);
+                pane.position.set(wx, 2.58, 4.62);
+                busMeshGroup.add(pane);
+
+                // Red Velvet Top Valance (ঝালর)
+                const jhalor = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.24, 0.22, 0.09),
+                    new THREE.MeshStandardMaterial({ color: 0xdc2626 })
+                );
+                jhalor.position.set(wx, 3.05, 4.63);
+                busMeshGroup.add(jhalor);
+            });
+
+            // Illuminated Front Route Destination Box + Local/Sitting Placard
+            const serviceText = bus.isSittingService ? "সিটিং সার্ভিস (গেট লক)" : "লোকাল সার্ভিস (সব স্টপেজ)";
+            const frontBannerTex = createSignboardTexture(livery.name, serviceText, "#0f172a", "#fde047", "#38bdf8");
+            busFrontBannerMat = new THREE.MeshBasicMaterial({ map: frontBannerTex });
+            const destBox = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.52, 0.12), busFrontBannerMat);
+            destBox.position.set(0, 3.45, 4.62);
+            busMeshGroup.add(destBox);
+
+            // Flashing Colorful LED Fairy Lights around Windshield
+            const ledColors = [0xef4444, 0x22c55e, 0x3b82f6, 0xfacc15, 0xec4899];
+            for (let i = 0; i < 10; i++) {
+                const bulb = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.06, 6, 6),
+                    new THREE.MeshBasicMaterial({ color: ledColors[i % ledColors.length] })
+                );
+                bulb.position.set(-1.25 + i * 0.28, 1.92, 4.65);
+                busMeshGroup.add(bulb);
+                ledStripMeshes.push(bulb);
+            }
+
+            // Heavy Steel Front Bullbar Bumper + Yellow Fog Lamps + Headlights
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.25 });
+            const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(3.26, 0.42, 0.35), steelMat);
+            frontBumper.position.set(0, 0.82, 4.72);
+            busMeshGroup.add(frontBumper);
+
+            [-1.15, 1.15].forEach(hx => {
+                const hl = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.42, 0.26, 0.1),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                );
+                hl.position.set(hx, 1.28, 4.63);
+                busMeshGroup.add(hl);
+            });
+
+            // Protruding "Kan Looking Glass" (Ear Mirrors)
+            [-1.68, 1.68].forEach(mx => {
+                const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.48, 0.14), steelMat);
+                mirror.position.set(mx, 2.45, 4.75);
+                busMeshGroup.add(mirror);
+            });
+
+            // Swinging Rear Mudflap ("চাক্কা ঘুরলে টাকা")
+            mudflapMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(2.8, 0.45, 0.06),
+                new THREE.MeshStandardMaterial({ color: 0x090d16 })
+            );
+            mudflapMesh.position.set(0, 0.55, -4.62);
+            busMeshGroup.add(mudflapMesh);
+
+            // Rooftop Steel Luggage Carrier Rack + Rice Sacks + Blue Plastic Drum
+            const rackFrame = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.35, 6.2), steelMat);
+            rackFrame.position.set(0, 3.88, -0.3);
+            busMeshGroup.add(rackFrame);
+
+            const sackMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.9 });
+            for (let s = 0; s < 4; s++) {
+                const sack = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.45, 1.2), sackMat);
+                sack.position.set((s % 2 === 0 ? -0.52 : 0.52), 4.15, -1.6 + s * 0.85);
+                busMeshGroup.add(sack);
+            }
+
+            const blueDrum = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.38, 0.38, 0.95, 12),
+                new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 })
+            );
+            blueDrum.position.set(0.55, 4.35, 1.2);
+            busMeshGroup.add(blueDrum);
+
+            // Helper Mona Hanging Out the Front-Left Doorway (Red Jersey, Lungi & Gamcha)
+            const helperGroup = new THREE.Group();
+            const torso = new THREE.Mesh(
+                new THREE.BoxGeometry(0.42, 0.65, 0.28),
+                new THREE.MeshStandardMaterial({ color: 0xdc2626 })
+            );
+            torso.position.y = 0.95;
+            helperGroup.add(torso);
+
+            const lungi = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.22, 0.26, 0.62, 8),
+                new THREE.MeshStandardMaterial({ color: 0x1d4ed8 })
+            );
+            lungi.position.y = 0.35;
+            helperGroup.add(lungi);
+
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.21, 10, 10),
+                new THREE.MeshStandardMaterial({ color: 0xd97706 })
+            );
+            head.position.y = 1.48;
+            helperGroup.add(head);
+
+            helperArmMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.14, 0.55, 0.14),
+                new THREE.MeshStandardMaterial({ color: 0xd97706 })
+            );
+            helperArmMesh.position.set(-0.28, 1.15, 0);
+            helperArmMesh.rotation.z = 0.6;
+            helperGroup.add(helperArmMesh);
+
+            helperGroup.position.set(-1.68, 0.72, 3.35);
+            busMeshGroup.add(helperGroup);
+
+            // 6 Heavy-Duty Bus Wheels with Yellow/Red Painted Hubs
+            const tireGeo = new THREE.CylinderGeometry(0.62, 0.62, 0.48, 16);
+            tireGeo.rotateZ(Math.PI / 2);
+            const tireMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+
+            const wheelCoords = [
+                [-1.58, 0.62, 2.85], [1.58, 0.62, 2.85],
+                [-1.58, 0.62, -2.45], [1.58, 0.62, -2.45],
+                [-1.58, 0.62, -3.55], [1.58, 0.62, -3.55]
+            ];
+            busWheels = [];
+            wheelCoords.forEach(([wx, wy, wz]) => {
+                const wGroup = new THREE.Group();
+                const tire = new THREE.Mesh(tireGeo, tireMat);
+                wGroup.add(tire);
+
+                const hub = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.32, 0.32, 0.52, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+                );
+                hub.rotateZ(Math.PI / 2);
+                wGroup.add(hub);
+
+                wGroup.position.set(wx, wy, wz);
+                busMeshGroup.add(wGroup);
+                busWheels.push(wGroup);
+            });
+
+            scene.add(busMeshGroup);
+        }
+
+        function refreshBusTextures() {
+            if (!busBodyMatLeft) return;
+            const livery = BUS_LIVERIES[bus.liveryIdx];
+            busBodyMatLeft.map = createBusSideTexture(livery, true);
+            busBodyMatLeft.needsUpdate = true;
+            busBodyMatRight.map = createBusSideTexture(livery, false);
+            busBodyMatRight.needsUpdate = true;
+            busRearMat.map = createBusRearTexture(livery, BACK_SLOGANS[bus.sloganIdx]);
+            busRearMat.needsUpdate = true;
+
+            const serviceText = bus.isSittingService ? "সিটিং সার্ভিস (গেট লক)" : "লোকাল সার্ভিস (সব স্টপেজ)";
+            busFrontBannerMat.map = createSignboardTexture(livery.name, serviceText, "#0f172a", "#fde047", "#38bdf8");
+            busFrontBannerMat.needsUpdate = true;
+        }
+
+        // ============================================================================
+        // 6. BUILD OPEN-WORLD DHAKA CITY MAP (MATCHING ATTACHED THANA & RIVER MAP)
+        // ============================================================================
+        function buildDhakaOpenWorldMap() {
+            // 1. Base Ground
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(2400, 3400),
+                new THREE.MeshStandardMaterial({ color: 0x14261c, roughness: 0.95 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 2. Colored Thana Zones on the Ground (Matching Attached Dhaka City Map Colors)
+            DHAKA_THANAS.forEach(thana => {
+                const zonePlane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(thana.w, thana.d),
+                    new THREE.MeshStandardMaterial({ color: thana.color, roughness: 0.92 })
+                );
+                zonePlane.rotation.x = -Math.PI / 2;
+                zonePlane.position.set(thana.x, 0.02, thana.z);
+                zonePlane.receiveShadow = true;
+                scene.add(zonePlane);
+            });
+
+            // 3. Surrounding Rivers from the Map: Turag River (West), Buriganga River (South), Balu River (East) + Hatirjheel & Dhanmondi Lake
+            const waterMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.2, metalness: 0.6 });
+
+            // Turag River along Western Border (Savar / Aminbazar / Gabtoli)
+            const turagRiver = new THREE.Mesh(new THREE.PlaneGeometry(180, 3200), waterMat);
+            turagRiver.rotation.x = -Math.PI / 2;
+            turagRiver.position.set(-820, 0.05, 0);
+            scene.add(turagRiver);
+
+            // Buriganga River along Southern Border (Lalbag / Kotwali / Sutrapur / Postogola Bridge)
+            const burigangaRiver = new THREE.Mesh(new THREE.PlaneGeometry(2200, 220), waterMat);
+            burigangaRiver.rotation.x = -Math.PI / 2;
+            burigangaRiver.position.set(0, 0.05, 1320);
+            scene.add(burigangaRiver);
+
+            // Balu River along Eastern Border (Yusufganj / Sabujbag / Demra)
+            const baluRiver = new THREE.Mesh(new THREE.PlaneGeometry(160, 3200), waterMat);
+            baluRiver.rotation.x = -Math.PI / 2;
+            baluRiver.position.set(880, 0.05, 0);
+            scene.add(baluRiver);
+
+            // 3B. Detailed Dhaka Lakes & Pukurs (Ponds) with Shimmering Water, Concrete Ghat Steps, Boats & Shapla Lotuses
+            buildDhakaLakesAndPukurs();
+
+            // 4. Multi-Avenue Asphalt Road Grid (Mirpur Rd, Begum Rokeya Sarani, Airport Rd, Suhrawardy Ave, Mukti Sarani)
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.82 });
+            const footpathMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+            const dividerMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.7 });
+            const laneLineMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+            const nsLength = 2650;
+            const ewLength = 1480;
+
+            GRID_X_COORDS.forEach(rx => {
+                const road = new THREE.Mesh(new THREE.PlaneGeometry(28, nsLength), roadMat);
+                road.rotation.x = -Math.PI / 2;
+                road.position.set(rx, 0.06, -40);
+                road.receiveShadow = true;
+                scene.add(road);
+
+                // Concrete Center Median Divider & Dual-Carriageway Lane Dividers (From Photo 1)
+                for (let z = -1220; z <= 1120; z += 75) {
+                    if (GRID_Z_COORDS.some(gz => Math.abs(z - gz) < 28)) continue;
+                    const median = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 42), dividerMat);
+                    median.position.set(rx, 0.28, z);
+                    scene.add(median);
+
+                    // White Dashed Lane Markings
+                    [-6.5, 6.5].forEach(lx => {
+                        const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 14), laneLineMat);
+                        dash.rotation.x = -Math.PI / 2;
+                        dash.position.set(rx + lx, 0.075, z);
+                        scene.add(dash);
+                    });
+                }
+
+                [-15.2, 15.2].forEach(offset => {
+                    const fp = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, nsLength), footpathMat);
+                    fp.position.set(rx + offset, 0.15, -40);
+                    scene.add(fp);
+                });
+            });
+
+            GRID_Z_COORDS.forEach(rz => {
+                const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(ewLength, 24), roadMat);
+                crossRoad.rotation.x = -Math.PI / 2;
+                crossRoad.position.set(50, 0.065, rz);
+                crossRoad.receiveShadow = true;
+                scene.add(crossRoad);
+            });
+
+            // 4B. Elevated Dhaka Flyover + Red Roof Petrol Pump / Filling Station Underneath (From Photo 2)
+            const flyoverConcrete = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.65 });
+            const flyoverDeck = new THREE.Mesh(new THREE.BoxGeometry(11.5, 1.1, 1650), flyoverConcrete);
+            flyoverDeck.position.set(320, 11.5, 180);
+            flyoverDeck.castShadow = true;
+            scene.add(flyoverDeck);
+
+            const flyoverAsphalt = new THREE.Mesh(
+                new THREE.PlaneGeometry(10.2, 1650),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            );
+            flyoverAsphalt.rotation.x = -Math.PI / 2;
+            flyoverAsphalt.position.set(320, 12.08, 180);
+            scene.add(flyoverAsphalt);
+
+            for (let fz = -600; fz <= 960; fz += 65) {
+                const fPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.1, 11.2, 12), flyoverConcrete);
+                fPillar.position.set(320, 5.6, fz);
+                scene.add(fPillar);
+                solidObstacles.push({
+                    x: 320,
+                    z: fz,
+                    radius: 1.6,
+                    type: 'flyover_pillar',
+                    label: 'ফ্লাইওভারের পিলার'
+                });
+            }
+
+            // Iconic Red-Roofed CNG & Petrol Filling Stations (From Photo 2)
+            [
+                { x: 292, z: 120, name: "সোনার বাংলা সিএনজি ও পেট্রোল পাম্প" },
+                { x: -26, z: -110, name: "মহাখালী ফিলিং স্টেশন ও সিএনজি পাম্প" }
+            ].forEach(pump => {
+                const pGroup = new THREE.Group();
+                const canopy = new THREE.Mesh(
+                    new THREE.BoxGeometry(14, 0.9, 18),
+                    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 })
+                );
+                canopy.position.set(pump.x, 6.2, pump.z);
+                pGroup.add(canopy);
+
+                const roofWhite = new THREE.Mesh(
+                    new THREE.BoxGeometry(12.5, 0.25, 16.5),
+                    new THREE.MeshBasicMaterial({ color: 0xf8fafc })
+                );
+                roofWhite.position.set(pump.x, 6.68, pump.z);
+                pGroup.add(roofWhite);
+
+                [[-5, -6], [5, -6], [-5, 6], [5, 6]].forEach(([px, pz]) => {
+                    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 6.2, 8), flyoverConcrete);
+                    col.position.set(pump.x + px, 3.1, pump.z + pz);
+                    pGroup.add(col);
+                });
+                scene.add(pGroup);
+            });
+
+            // 5. Elevated MRT Line 6 Metro Rail Viaduct & Collidable Concrete Pillars along Central Spine (x = 0)
+            const concreteMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.7 });
+            const viaductDeck = new THREE.Mesh(new THREE.BoxGeometry(9.2, 1.3, nsLength), concreteMat);
+            viaductDeck.position.set(0, 16.5, -40);
+            viaductDeck.castShadow = true;
+            scene.add(viaductDeck);
+
+            const pillarGeo = new THREE.CylinderGeometry(1.15, 1.35, 16, 14);
+            const capGeo = new THREE.BoxGeometry(8.6, 1.4, 2.6);
+            for (let z = -1250; z <= 1150; z += 58) {
+                const pillar = new THREE.Mesh(pillarGeo, concreteMat);
+                pillar.position.set(0, 8, z);
+                pillar.castShadow = true;
+                scene.add(pillar);
+
+                const cap = new THREE.Mesh(capGeo, concreteMat);
+                cap.position.set(0, 15.4, z);
+                scene.add(cap);
+
+                solidObstacles.push({
+                    x: 0,
+                    z: z,
+                    radius: 1.85,
+                    type: 'metro_pillar',
+                    label: 'মেট্রোরেলের পিলার'
+                });
+            }
+
+            // Spawn 4 Animated Overhead Metro Trains
+            for (let m = 0; m < 4; m++) {
+                const tGroup = new THREE.Group();
+                const coach = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.2, 3.1, 28),
+                    new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.4, roughness: 0.3 })
+                );
+                coach.position.y = 18.8;
+                tGroup.add(coach);
+
+                const greenStripe = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.26, 0.55, 28.1),
+                    new THREE.MeshBasicMaterial({ color: 0x16a34a })
+                );
+                greenStripe.position.y = 18.7;
+                tGroup.add(greenStripe);
+
+                const dir = m % 2 === 0 ? 1 : -1;
+                tGroup.position.set(dir * 2.2, 0, -900 + m * 550);
+                scene.add(tGroup);
+                metroTrains.push({ mesh: tGroup, dir, speed: 0.95 });
+            }
+
+            // 6. Build 32 Dhaka Districts, Roundabouts & Glowing Green Passenger Bus Stop Bays
+            DHAKA_DISTRICTS.forEach((dist) => {
+                if (dist.hasRoundabout) {
+                    const rbBase = new THREE.Mesh(
+                        new THREE.CylinderGeometry(6.2, 6.8, 0.9, 24),
+                        new THREE.MeshStandardMaterial({ color: 0x059669 })
+                    );
+                    rbBase.position.set(dist.x, 0.45, dist.z);
+                    scene.add(rbBase);
+
+                    const monument = new THREE.Mesh(
+                        new THREE.ConeGeometry(2.6, 8.2, 8),
+                        new THREE.MeshStandardMaterial({ color: dist.color, metalness: 0.65, roughness: 0.25 })
+                    );
+                    monument.position.set(dist.x, 4.5, dist.z);
+                    scene.add(monument);
+
+                    solidObstacles.push({
+                        x: dist.x,
+                        z: dist.z,
+                        radius: 6.8,
+                        type: 'roundabout',
+                        label: dist.name.split('(')[0].trim() + ' গোলচত্বর'
+                    });
+                }
+
+                // Glowing Green Passenger Stop Bay
+                const bayX = dist.x - 10.5;
+                const bayZ = dist.z + 28;
+                const bayPlane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(5.5, 14),
+                    new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+                );
+                bayPlane.rotation.x = -Math.PI / 2;
+                bayPlane.position.set(bayX, 0.09, bayZ);
+                scene.add(bayPlane);
+
+                busStopZones.push({
+                    name: dist.name,
+                    x: bayX,
+                    z: bayZ,
+                    cooldown: 0
+                });
+            });
+
+            // 7. Populate Roadside Multi-Story Buildings (Yellow/Beige Apartments + Blue Glass Towers from Photo 1) & Blooming Krishnachura Trees (From Photo 3)
+            const buildingColors = [0xd97706, 0xeab308, 0x0284c7, 0x334155, 0x475569, 0xb45309, 0x1e3a8a];
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x451a03 });
+            const greenLeafMat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+            const krishnachuraRedMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.6 });
+            const krishnachuraScarletMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.55 });
+            const petalCarpetMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.65 });
+
+            GRID_X_COORDS.forEach((roadX, rIdx) => {
+                for (let z = -1220; z <= 1120; z += 65) {
+                    // Skip cross-road intersections
+                    if (GRID_Z_COORDS.some(gz => Math.abs(z - gz) < 34)) continue;
+
+                    [-26, 26].forEach(sideOffset => {
+                        const bw = 14 + ((Math.abs(z) + rIdx) % 8);
+                        const bh = 18 + ((Math.abs(z * 3) + rIdx * 7) % 30);
+                        const bd = 16 + ((Math.abs(z) + rIdx) % 10);
+                        const bx = roadX + sideOffset + (sideOffset < 0 ? -bw / 2 : bw / 2);
+
+                        const bMesh = new THREE.Mesh(
+                            new THREE.BoxGeometry(bw, bh, bd),
+                            new THREE.MeshStandardMaterial({
+                                color: buildingColors[Math.abs(z + rIdx) % buildingColors.length],
+                                roughness: 0.5,
+                                metalness: (z + rIdx) % 3 === 0 ? 0.45 : 0.1
+                            })
+                        );
+                        bMesh.position.set(bx, bh / 2, z);
+                        bMesh.castShadow = true;
+                        bMesh.receiveShadow = true;
+                        scene.add(bMesh);
+
+                        collidableBuildings.push({
+                            minX: bx - bw / 2 - 1.4,
+                            maxX: bx + bw / 2 + 1.4,
+                            minZ: z - bd / 2 - 1.4,
+                            maxZ: z + bd / 2 + 1.4
+                        });
+
+                        // Collidable Roadside Blooming Red-Orange Krishnachura & Green Trees (Matching Photo 3)
+                        const tx = roadX + (sideOffset < 0 ? -16.8 : 16.8);
+                        const tz = z + 22;
+                        const isKrishnachura = (Math.abs(z) + rIdx) % 2 === 0;
+                        const treeGroup = new THREE.Group();
+                        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.55, 4.5, 7), trunkMat);
+                        trunk.position.y = 2.25;
+                        treeGroup.add(trunk);
+
+                        const mainCrownMat = isKrishnachura ? krishnachuraRedMat : greenLeafMat;
+                        const crown = new THREE.Mesh(new THREE.SphereGeometry(3.2, 9, 9), mainCrownMat);
+                        crown.position.set(0, 5.5, 0);
+                        crown.scale.set(1.35, 0.85, 1.25);
+                        treeGroup.add(crown);
+
+                        if (isKrishnachura) {
+                            const topBlossom = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 8), krishnachuraScarletMat);
+                            topBlossom.position.set(sideOffset < 0 ? 1.4 : -1.4, 6.2, 0.4);
+                            treeGroup.add(topBlossom);
+
+                            // Fallen Red Petals along Curb (Photo 3)
+                            const petals = new THREE.Mesh(new THREE.CircleGeometry(2.6, 8), petalCarpetMat);
+                            petals.rotation.x = -Math.PI / 2;
+                            petals.position.set(0, 0.18, 0);
+                            treeGroup.add(petals);
+                        }
+
+                        treeGroup.position.set(tx, 0, tz);
+                        scene.add(treeGroup);
+
+                        destructibleProps.push({
+                            mesh: treeGroup,
+                            x: tx,
+                            z: tz,
+                            radius: 1.35,
+                            type: 'tree',
+                            fallen: false,
+                            fallAngle: 0,
+                            fallAxisX: 0,
+                            fallAxisZ: 1,
+                            respawnTimer: 0
+                        });
+                    });
+                }
+            });
+
+            // 8. Add Footover Bridges, Famous Dhaka Institutions/Dokans, Hawker Van Garis & Street Crowds
+            buildDhakaCulturalPropsAndCrowds();
+        }
+
+        function createAnimatedWaterTexture(isPukur) {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+
+            const grad = ctx.createLinearGradient(0, 0, 256, 256);
+            if (isPukur) {
+                grad.addColorStop(0, "#0f766e");
+                grad.addColorStop(0.5, "#0d9488");
+                grad.addColorStop(1, "#115e59");
+            } else {
+                grad.addColorStop(0, "#0369a1");
+                grad.addColorStop(0.5, "#0284c7");
+                grad.addColorStop(1, "#0e7490");
+            }
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 256, 256);
+
+            // Subtle Water Ripples & Sun Reflections
+            ctx.strokeStyle = "rgba(186, 230, 253, 0.35)";
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 28; i++) {
+                const rx = (i * 37) % 220;
+                const ry = (i * 53) % 240;
+                ctx.beginPath();
+                ctx.moveTo(rx, ry);
+                ctx.quadraticCurveTo(rx + 18, ry - 5, rx + 36, ry);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(4, 4);
+            return tex;
+        }
+
+        function buildDhakaLakesAndPukurs() {
+            const lakeWaterTex = createAnimatedWaterTexture(false);
+            const pukurWaterTex = createAnimatedWaterTexture(true);
+
+            const lakeWaterMat = new THREE.MeshStandardMaterial({
+                map: lakeWaterTex,
+                roughness: 0.12,
+                metalness: 0.75,
+                transparent: true,
+                opacity: 0.92
+            });
+            const pukurWaterMat = new THREE.MeshStandardMaterial({
+                map: pukurWaterTex,
+                roughness: 0.18,
+                metalness: 0.65,
+                transparent: true,
+                opacity: 0.94
+            });
+
+            const bankMudMat = new THREE.MeshStandardMaterial({ color: 0x3f2e21, roughness: 0.9 });
+            const ghatConcreteMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.6 });
+            const lilyPadMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.7 });
+            const shaplaPinkMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 });
+            const boatWoodMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
+
+            DHAKA_WATER_BODIES.forEach((wb, idx) => {
+                const isPukur = wb.type === 'pukur';
+                const wbGroup = new THREE.Group();
+
+                // 1. Raised Earthen / Grass Bank Perimeter (পাড়)
+                const bankBorder = new THREE.Mesh(
+                    new THREE.BoxGeometry(wb.w + 5, 0.22, wb.d + 5),
+                    bankMudMat
+                );
+                bankBorder.position.set(wb.x, 0.08, wb.z);
+                wbGroup.add(bankBorder);
+
+                // 2. Shimmering Water Surface
+                const waterPlane = new THREE.Mesh(
+                    new THREE.PlaneGeometry(wb.w, wb.d),
+                    isPukur ? pukurWaterMat : lakeWaterMat
+                );
+                waterPlane.rotation.x = -Math.PI / 2;
+                waterPlane.position.set(wb.x, 0.22, wb.z);
+                waterPlane.receiveShadow = true;
+                wbGroup.add(waterPlane);
+                waterMeshes.push({ mesh: waterPlane, isBoat: false, baseX: wb.x, baseZ: wb.z, idx });
+
+                // 3. Traditional Bangladeshi "Pukur Ghat" (বাঁধানো সিঁড়ি ঘাট) on West & North Banks
+                for (let s = 0; s < 4; s++) {
+                    const step = new THREE.Mesh(
+                        new THREE.BoxGeometry(2.6, 0.22, 12 - s * 1.2),
+                        ghatConcreteMat
+                    );
+                    step.position.set(wb.x - wb.w / 2 + s * 0.75, 0.68 - s * 0.14, wb.z);
+                    wbGroup.add(step);
+                }
+
+                // Ghat Signboard
+                const signTex = createSignboardTexture(
+                    wb.name,
+                    isPukur ? "ঐতিহ্যবাহী বাঁধানো পুকুর ঘাট • গোসল ও মাছ ধরা নিষেধ" : "লেক ভিউ ওয়াকওয়ে ও ওয়াটার ট্যাক্সি জোন",
+                    isPukur ? "#065f46" : "#0c4a6e",
+                    "#ffffff",
+                    "#38bdf8"
+                );
+                const signBoard = new THREE.Mesh(
+                    new THREE.BoxGeometry(10.5, 1.9, 0.22),
+                    new THREE.MeshBasicMaterial({ map: signTex })
+                );
+                signBoard.position.set(wb.x - wb.w / 2 - 1.5, 2.5, wb.z - 8);
+                signBoard.rotation.y = Math.PI / 2;
+                wbGroup.add(signBoard);
+
+                // 4. Floating Shapla (Water Lilies), Kochuripana & Wooden Dinghy Boats (ডিঙি নৌকা)
+                const padCount = isPukur ? 18 : 30;
+                for (let p = 0; p < padCount; p++) {
+                    const px = wb.x + (Math.random() - 0.5) * (wb.w - 10);
+                    const pz = wb.z + (Math.random() - 0.5) * (wb.d - 10);
+                    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.85, 8), lilyPadMat);
+                    pad.rotation.x = -Math.PI / 2;
+                    pad.position.set(px, 0.25, pz);
+                    wbGroup.add(pad);
+
+                    if (p % 3 === 0) {
+                        const flower = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.42, 6), shaplaPinkMat);
+                        flower.position.set(px, 0.42, pz);
+                        wbGroup.add(flower);
+                    }
+                }
+
+                // Wooden Country Boat (নৌকা) / Hatirjheel Water Taxi
+                const boatCount = isPukur ? 1 : 3;
+                for (let b = 0; b < boatCount; b++) {
+                    const boat = new THREE.Group();
+                    const hull = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 4.4), boatWoodMat);
+                    hull.position.y = 0.35;
+                    boat.add(hull);
+
+                    const hood = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.78, 0.78, 2.1, 8, 1, false, 0, Math.PI),
+                        new THREE.MeshStandardMaterial({ color: isPukur ? 0xd97706 : 0xef4444 })
+                    );
+                    hood.rotation.z = Math.PI / 2;
+                    hood.rotation.y = Math.PI / 2;
+                    hood.position.set(0, 0.62, 0);
+                    boat.add(hood);
+
+                    const bx = wb.x + (b - 1) * (wb.w * 0.22);
+                    const bz = wb.z + (b % 2 === 0 ? -12 : 12);
+                    boat.position.set(bx, 0.08, bz);
+                    wbGroup.add(boat);
+                    waterMeshes.push({ mesh: boat, isBoat: true, baseX: bx, baseZ: bz, idx: idx + b });
+                }
+
+                // 5. Arch Bridge over Major Lakes (Hatirjheel / Dhanmondi / Gulshan Lake)
+                if (wb.hasBridge) {
+                    const archBridge = new THREE.Mesh(
+                        new THREE.BoxGeometry(wb.w + 8, 0.7, 7.5),
+                        new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.45 })
+                    );
+                    archBridge.position.set(wb.x, 3.4, wb.z);
+                    wbGroup.add(archBridge);
+                }
+
+                scene.add(wbGroup);
+            });
+        }
+
+        function buildDhakaCulturalPropsAndCrowds() {
+            const bridgeSteelMat = new THREE.MeshStandardMaterial({ color: 0x0d9488, metalness: 0.55, roughness: 0.35 });
+            const stairMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.65 });
+
+            // 1. Pedestrian Footover Bridges (ফার্মগেট, মিরপুর ১০, নিউমার্কেট, শাহবাগ, উত্তরা, বনানী, শ্যামলী)
+            const overbridges = [
+                { x: 0, z: 155, title: "ফার্মগেট আনন্দ ওভারব্রিজ", sub: "তেজগাঁও থানা • হকার্স ও কোচিং জোন" },
+                { x: -220, z: -455, title: "মিরপুর-১০ ফুটওভার ব্রিজ", sub: "বেগম রোকেয়া সরণি • হোপ মার্কেট" },
+                { x: -550, z: 475, title: "নিউমার্কেট-গাউছিয়া ওভারব্রিজ", sub: "ঢাকা কলেজ ⇄ সায়েন্সল্যাব সিটি কলেজ" },
+                { x: 0, z: 475, title: "শাহবাগ-পিজি হাসপাতাল ব্রিজ", sub: "রমনা থানা • ঢাকা বিশ্ববিদ্যালয় গেট" },
+                { x: 0, z: -1140, title: "উত্তরা হাউজ বিল্ডিং ওভারব্রিজ", sub: "উত্তরা মডেল টাউন • এয়ারপোর্ট রোড" },
+                { x: 320, z: -455, title: "গুলশান-বনানী ওভারব্রিজ", sub: "শহীদ সোহরাওয়ার্দী অ্যাভিনিউ" },
+                { x: -550, z: -195, title: "শ্যামলী-মোহাম্মদপুর ফুটওভার ব্রিজ", sub: "মিরপুর রোড করিডোর" }
+            ];
+
+            overbridges.forEach(ob => {
+                const bg = new THREE.Group();
+                const deck = new THREE.Mesh(new THREE.BoxGeometry(36, 0.6, 3.4), bridgeSteelMat);
+                deck.position.set(ob.x, 7.6, ob.z);
+                deck.castShadow = true;
+                bg.add(deck);
+
+                const canopy = new THREE.Mesh(
+                    new THREE.BoxGeometry(36, 0.25, 3.8),
+                    new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 })
+                );
+                canopy.position.set(ob.x, 10.1, ob.z);
+                bg.add(canopy);
+
+                const bTex = createSignboardTexture(ob.title, ob.sub, "#1e3a8a", "#ffffff", "#38bdf8");
+                const banner = new THREE.Mesh(
+                    new THREE.BoxGeometry(18, 2.1, 0.25),
+                    new THREE.MeshBasicMaterial({ map: bTex })
+                );
+                banner.position.set(ob.x, 8.5, ob.z + 1.78);
+                bg.add(banner);
+                const bannerBack = banner.clone();
+                bannerBack.position.set(ob.x, 8.5, ob.z - 1.78);
+                bg.add(bannerBack);
+
+                [-17.2, 17.2].forEach(sideX => {
+                    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.52, 10, 10), stairMat);
+                    col.position.set(ob.x + sideX, 5.0, ob.z);
+                    bg.add(col);
+
+                    const stairRamp = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 9.5), stairMat);
+                    stairRamp.position.set(ob.x + sideX + (sideX < 0 ? -1.4 : 1.4), 3.8, ob.z + 4.2);
+                    stairRamp.rotation.x = 0.68;
+                    bg.add(stairRamp);
+
+                    solidObstacles.push({
+                        x: ob.x + sideX,
+                        z: ob.z,
+                        radius: 1.35,
+                        type: 'overbridge_pillar',
+                        label: ob.title + ' এর সিঁড়ি'
+                    });
+                });
+
+                scene.add(bg);
+            });
+
+            // 2. Famous Dhaka Universities, Colleges, Markets & Iconic Restaurants / Dokans
+            const famousLandmarks = [
+                {
+                    name: "ঢাকা বিশ্ববিদ্যালয় (Dhaka University)",
+                    sub: "কার্জন হল ও টিএসসি গেট • রমনা থানা",
+                    x: -24, z: 560, w: 22, h: 14, d: 14,
+                    wallColor: 0x991b1b, bannerBg: "#7f1d1d", border: "#facc15"
+                },
+                {
+                    name: "ঢাকা সিটি কলেজ (Dhaka City College)",
+                    sub: "সায়েন্সল্যাব মোড় • ধানমন্ডি ওয়ার্ড ৫২",
+                    x: -574, z: 485, w: 18, h: 18, d: 14,
+                    wallColor: 0x1e3a8a, bannerBg: "#1e40af", border: "#38bdf8"
+                },
+                {
+                    name: "ঢাকা কলেজ (Dhaka College)",
+                    sub: "মিরপুর রোড • নিউমার্কেট সংলগ্ন",
+                    x: -526, z: 545, w: 20, h: 15, d: 14,
+                    wallColor: 0xfef08a, bannerBg: "#065f46", border: "#fde047"
+                },
+                {
+                    name: "গাউছিয়া ও চাঁদনী চক নিউমার্কেট",
+                    sub: "দেইখ্যা লন বাইছা লন • কেনাকাটার স্বর্গ",
+                    x: -575, z: 565, w: 22, h: 12, d: 18,
+                    wallColor: 0xbe123c, bannerBg: "#9f1239", border: "#fde047"
+                },
+                {
+                    name: "বসুন্ধরা সিটি শপিং মল (Bashundhara City)",
+                    sub: "পান্থপথ - কারওয়ান বাজার মোড় • তেজগাঁও",
+                    x: -26, z: 245, w: 24, h: 36, d: 18,
+                    wallColor: 0x0284c7, bannerBg: "#0f172a", border: "#38bdf8"
+                },
+                {
+                    name: "হাজী বিরিয়ানি ও স্টার কাবাব হোটেল",
+                    sub: "পুরান ঢাকা কোতোয়ালি ও সূত্রাপুর স্পেশাল কাচ্চি",
+                    x: 22, z: 865, w: 16, h: 9, d: 12,
+                    wallColor: 0xd97706, bannerBg: "#78350f", border: "#facc15"
+                },
+                {
+                    name: "সুলতান'স ডাইন ও কাচ্চি ভাই (Kacchi Bhai)",
+                    sub: "ধানমন্ডি-সাতমসজিদ রোড ফুড জোন",
+                    x: -526, z: 245, w: 16, h: 11, d: 12,
+                    wallColor: 0x7c2d12, bannerBg: "#451a03", border: "#fb923c"
+                },
+                {
+                    name: "মিরপুর বেনারসি পল্লী ও হোপ মার্কেট",
+                    sub: "মিরপুর-১০ গোলচত্বর শপিং জোন",
+                    x: -244, z: -465, w: 18, h: 11, d: 14,
+                    wallColor: 0x6d28d9, bannerBg: "#4c1d95", border: "#facc15"
+                },
+                {
+                    name: "বাংলাদেশ-চীন মৈত্রী সেতু (Postogola Bridge)",
+                    sub: "বুড়িগঙ্গা নদী • সূত্রাপুর ও শ্যামপুর গেটওয়ে",
+                    x: 24, z: 1155, w: 22, h: 12, d: 14,
+                    wallColor: 0x047857, bannerBg: "#064e3b", border: "#34d399"
+                }
+            ];
+
+            famousLandmarks.forEach(fl => {
+                const group = new THREE.Group();
+                const bldg = new THREE.Mesh(
+                    new THREE.BoxGeometry(fl.w, fl.h, fl.d),
+                    new THREE.MeshStandardMaterial({ color: fl.wallColor, roughness: 0.45 })
+                );
+                bldg.position.set(fl.x, fl.h / 2, fl.z);
+                bldg.castShadow = true;
+                group.add(bldg);
+
+                const sTex = createSignboardTexture(fl.name, fl.sub, fl.bannerBg, "#ffffff", fl.border);
+                const signMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(fl.w * 0.92, 3.2, 0.6),
+                    new THREE.MeshBasicMaterial({ map: sTex })
+                );
+                signMesh.position.set(fl.x, fl.h + 1.8, fl.z);
+                group.add(signMesh);
+
+                scene.add(group);
+
+                collidableBuildings.push({
+                    minX: fl.x - fl.w / 2 - 1.5,
+                    maxX: fl.x + fl.w / 2 + 1.5,
+                    minZ: fl.z - fl.d / 2 - 1.5,
+                    maxZ: fl.z + fl.d / 2 + 1.5
+                });
+            });
+
+            // 3. Roadside Hawker Van Garis (ভ্যান গাড়িতে কাপড়, আম, ফুচকা) & Tong Tea Stalls (মামার টং চায়ের দোকান)
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const umbrellaColors = [0xdc2626, 0x2563eb, 0x16a34a, 0xd97706, 0x9333ea];
+
+            const hawkerAnnouncements = [
+                { title: "ভাই ভাই মায়ের দোয়া চায়ের টং", type: "tea_stall" },
+                { title: "বিসমিল্লাহ ভেলপুরি ও ফুচকা ভ্যান", type: "van_gari" },
+                { title: "গুলিস্তান হকার্স: দেইখ্যা লন ১০০ টাকা!", type: "van_gari" },
+                { title: "মামা স্পেশাল মালাই চা ও সিঙ্গারা", type: "tea_stall" },
+                { title: "রাজশাহীর আম ও মৌসুমি ফলের ভ্যান", type: "van_gari" },
+                { title: "বিক্রমপুর ঝালমুড়ি ও চানাচুর ভ্যান", type: "van_gari" }
+            ];
+
+            GRID_X_COORDS.forEach((roadX, rIdx) => {
+                for (let z = -1150; z <= 1100; z += 85) {
+                    const side = (Math.abs(z) + rIdx) % 2 === 0 ? -1 : 1;
+                    const hx = roadX + side * 13.6;
+                    const hz = z;
+
+                    const info = hawkerAnnouncements[Math.abs(Math.floor(z / 85) + rIdx) % hawkerAnnouncements.length];
+                    const hGroup = new THREE.Group();
+
+                    if (info.type === 'van_gari') {
+                        const flatbed = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.18, 3.1), woodMat);
+                        flatbed.position.y = 0.78;
+                        hGroup.add(flatbed);
+
+                        [[-1.05, 0.38, 0.8], [1.05, 0.38, 0.8], [0, 0.38, -1.25]].forEach(([wx, wy, wz]) => {
+                            const w = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.08, 12), wheelMat);
+                            w.rotation.z = Math.PI / 2;
+                            w.position.set(wx, wy, wz);
+                            hGroup.add(w);
+                        });
+
+                        for (let p = 0; p < 4; p++) {
+                            const pile = new THREE.Mesh(
+                                new THREE.BoxGeometry(0.75, 0.42, 0.65),
+                                new THREE.MeshStandardMaterial({ color: umbrellaColors[(p + rIdx) % umbrellaColors.length] })
+                            );
+                            pile.position.set((p % 2 === 0 ? -0.42 : 0.42), 1.05, (p < 2 ? -0.55 : 0.55));
+                            hGroup.add(pile);
+                        }
+
+                        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.3), wheelMat);
+                        pole.position.y = 1.9;
+                        hGroup.add(pole);
+
+                        const umb = new THREE.Mesh(
+                            new THREE.ConeGeometry(1.65, 0.65, 10),
+                            new THREE.MeshStandardMaterial({ color: umbrellaColors[Math.abs(z) % umbrellaColors.length] })
+                        );
+                        umb.position.y = 3.05;
+                        hGroup.add(umb);
+                    } else {
+                        const stallBox = new THREE.Mesh(
+                            new THREE.BoxGeometry(2.5, 1.3, 2.8),
+                            new THREE.MeshStandardMaterial({ color: 0x0369a1 })
+                        );
+                        stallBox.position.y = 0.65;
+                        hGroup.add(stallBox);
+
+                        const tinRoof = new THREE.Mesh(
+                            new THREE.BoxGeometry(3.0, 0.14, 3.3),
+                            new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6 })
+                        );
+                        tinRoof.position.y = 2.45;
+                        tinRoof.rotation.z = side * 0.1;
+                        hGroup.add(tinRoof);
+
+                        const tSign = createSignboardTexture(info.title, "রঙ চা • দুধ চা • বিস্কুট • কলা", "#7c2d12", "#fef08a");
+                        const sBoard = new THREE.Mesh(
+                            new THREE.BoxGeometry(2.6, 0.65, 0.12),
+                            new THREE.MeshBasicMaterial({ map: tSign })
+                        );
+                        sBoard.position.set(0, 2.85, 0);
+                        sBoard.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+                        hGroup.add(sBoard);
+                    }
+
+                    hGroup.position.set(hx, 0, hz);
+                    scene.add(hGroup);
+
+                    destructibleProps.push({
+                        mesh: hGroup,
+                        x: hx,
+                        z: hz,
+                        radius: 1.85,
+                        type: info.type,
+                        title: info.title,
+                        fallen: false,
+                        fallAngle: 0,
+                        fallAxisX: 0,
+                        fallAxisZ: 1,
+                        respawnTimer: 0
+                    });
+                }
+            });
+
+            // 3B. Colorful Foil Balloon Sellers on Road Medians (From Bottom-Left of Photo 1)
+            const balloonColors = [0xef4444, 0x3b82f6, 0xfacc15, 0xec4899, 0x22c55e, 0xa855f7];
+            GRID_X_COORDS.forEach((roadX, rIdx) => {
+                for (let z = -1050; z <= 1050; z += 150) {
+                    const bSeller = new THREE.Group();
+                    const body = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.42, 0.72, 0.28),
+                        new THREE.MeshStandardMaterial({ color: 0x1d4ed8 })
+                    );
+                    body.position.y = 0.95;
+                    bSeller.add(body);
+
+                    const head = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.2, 8, 8),
+                        new THREE.MeshStandardMaterial({ color: 0xd97706 })
+                    );
+                    head.position.y = 1.5;
+                    bSeller.add(head);
+
+                    const stick = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.03, 0.03, 2.5),
+                        new THREE.MeshStandardMaterial({ color: 0xfef08a })
+                    );
+                    stick.position.set(0.28, 2.1, 0);
+                    bSeller.add(stick);
+
+                    // Cluster of 10 Colorful Floating Foil Balloons
+                    for (let b = 0; b < 10; b++) {
+                        const bal = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.28, 8, 8),
+                            new THREE.MeshStandardMaterial({
+                                color: balloonColors[(b + rIdx) % balloonColors.length],
+                                metalness: 0.4,
+                                roughness: 0.2
+                            })
+                        );
+                        const angle = (b / 10) * Math.PI * 2;
+                        bal.position.set(
+                            0.28 + Math.cos(angle) * 0.45,
+                            2.85 + (b % 3) * 0.32,
+                            Math.sin(angle) * 0.45
+                        );
+                        bSeller.add(bal);
+                    }
+
+                    bSeller.position.set(roadX, 0.25, z);
+                    scene.add(bSeller);
+
+                    destructibleProps.push({
+                        mesh: bSeller,
+                        x: roadX,
+                        z: z,
+                        radius: 1.25,
+                        type: 'van_gari',
+                        title: 'ডিভাইডারের রঙিন বেলুনওয়ালা',
+                        fallen: false,
+                        fallAngle: 0,
+                        fallAxisX: 0,
+                        fallAxisZ: 1,
+                        respawnTimer: 0
+                    });
+                }
+            });
+
+            // 4. Spawn 240 Animated Dhaka Pedestrians, Office Crowds & Jaywalkers Crossing Busy Roads (From Photo 1)
+            const shirtPalette = [0xef4444, 0x3b82f6, 0x10b981, 0xf59e0b, 0xec4899, 0x8b5cf6, 0xf8fafc, 0x0f172a];
+            const pantPalette = [0x1e293b, 0x0f172a, 0x1d4ed8, 0x374151, 0xf8fafc];
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xd97706 });
+
+            for (let i = 0; i < 240; i++) {
+                const roadX = GRID_X_COORDS[i % GRID_X_COORDS.length];
+                const isJaywalker = i % 2 === 0;
+                const side = i % 2 === 0 ? -1 : 1;
+                const px = isJaywalker ? (roadX + (Math.random() - 0.5) * 25) : (roadX + side * (13.8 + Math.random() * 3.0));
+                const pz = -1200 + Math.random() * 2350;
+
+                const pGroup = new THREE.Group();
+                const torso = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.42, 0.68, 0.28),
+                    new THREE.MeshStandardMaterial({ color: shirtPalette[i % shirtPalette.length] })
+                );
+                torso.position.y = 0.98;
+                pGroup.add(torso);
+
+                const legs = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.36, 0.64, 0.24),
+                    new THREE.MeshStandardMaterial({ color: pantPalette[i % pantPalette.length] })
+                );
+                legs.position.y = 0.32;
+                pGroup.add(legs);
+
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), skinMat);
+                head.position.y = 1.5;
+                pGroup.add(head);
+
+                // Shopping Bag for Some Jaywalkers (Like Photo 1)
+                if (i % 4 === 0) {
+                    const bag = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.25, 0.32, 0.12),
+                        new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+                    );
+                    bag.position.set(0.32, 0.65, 0);
+                    pGroup.add(bag);
+                }
+
+                pGroup.position.set(px, 0, pz);
+                scene.add(pGroup);
+
+                pedestrians.push({
+                    mesh: pGroup,
+                    x: px,
+                    z: pz,
+                    roadX,
+                    isJaywalker,
+                    dir: Math.random() > 0.5 ? 1 : -1,
+                    vx: 0,
+                    vz: 0,
+                    panicTimer: 0
+                });
+            }
+        }
+
+        // ============================================================================
+        // 7. REALISTIC MULTI-PART DHAKA TRAFFIC VEHICLES & SPAWNER
+        // ============================================================================
+        function createRealisticDhakaVehicleMesh(type, idx) {
+            const vGroup = new THREE.Group();
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.15 });
+            let radius = 1.8;
+
+            if (type === 'brtc_double_decker') {
+                // Iconic Red BRTC Double-Decker Bus
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.95, 4.35, 9.4),
+                    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 })
+                );
+                body.position.y = 2.55;
+                body.castShadow = true;
+                vGroup.add(body);
+
+                const stripe = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.0, 0.35, 9.44),
+                    new THREE.MeshBasicMaterial({ color: 0xf8fafc })
+                );
+                stripe.position.y = 2.45;
+                vGroup.add(stripe);
+
+                [1.75, 3.55].forEach(wy => {
+                    const winBand = new THREE.Mesh(new THREE.BoxGeometry(3.01, 0.78, 8.2), glassMat);
+                    winBand.position.y = wy;
+                    vGroup.add(winBand);
+                });
+                radius = 3.2;
+            } else if (type === 'rival_bus') {
+                const colors = [0x0284c7, 0x059669, 0xd97706, 0x7c3aed];
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.9, 3.0, 8.6),
+                    new THREE.MeshStandardMaterial({ color: colors[idx % colors.length], roughness: 0.4 })
+                );
+                body.position.y = 1.9;
+                body.castShadow = true;
+                vGroup.add(body);
+
+                const winBand = new THREE.Mesh(new THREE.BoxGeometry(2.94, 0.85, 7.4), glassMat);
+                winBand.position.y = 2.25;
+                vGroup.add(winBand);
+                radius = 2.9;
+            } else if (type === 'leguna') {
+                // White & Blue Dhaka Human Hauler Leguna with Helper on Rear Footboard
+                const cabin = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.75, 1.65, 1.35),
+                    new THREE.MeshStandardMaterial({ color: 0x0284c7 })
+                );
+                cabin.position.set(0, 1.15, 1.35);
+                vGroup.add(cabin);
+
+                const rearBox = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.85, 1.75, 2.55),
+                    new THREE.MeshStandardMaterial({ color: 0xf8fafc })
+                );
+                rearBox.position.set(0, 1.2, -0.55);
+                vGroup.add(rearBox);
+
+                const helper = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.38, 1.1, 0.28),
+                    new THREE.MeshStandardMaterial({ color: 0xef4444 })
+                );
+                helper.position.set(0.35, 0.95, -1.92);
+                vGroup.add(helper);
+                radius = 1.7;
+            } else if (type === 'truck') {
+                // Blue Tata Mini-Truck / Covered Van
+                const cab = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.4, 2.2, 1.9),
+                    new THREE.MeshStandardMaterial({ color: 0x1d4ed8 })
+                );
+                cab.position.set(0, 1.45, 2.15);
+                vGroup.add(cab);
+
+                const cargo = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.55, 2.65, 4.4),
+                    new THREE.MeshStandardMaterial({ color: idx % 2 === 0 ? 0xf8fafc : 0xd97706 })
+                );
+                cargo.position.set(0, 1.75, -0.95);
+                cargo.castShadow = true;
+                vGroup.add(cargo);
+                radius = 2.45;
+            } else if (type === 'cng') {
+                // Green Wire-Caged Dhaka CNG Auto-Rickshaw
+                const lower = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.32, 0.85, 2.35),
+                    new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.4 })
+                );
+                lower.position.y = 0.65;
+                vGroup.add(lower);
+
+                const cage = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.26, 0.72, 1.75),
+                    new THREE.MeshStandardMaterial({ color: 0x94a3b8, wireframe: true })
+                );
+                cage.position.set(0, 1.42, -0.15);
+                vGroup.add(cage);
+
+                const hood = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.3, 0.14, 1.95),
+                    new THREE.MeshStandardMaterial({ color: 0x166534 })
+                );
+                hood.position.set(0, 1.82, -0.1);
+                vGroup.add(hood);
+                radius = 1.25;
+            } else if (type === 'rickshaw') {
+                // Colorful Cycle Rickshaw with Puller
+                const hoodColors = [0xef4444, 0xfacc15, 0x3b82f6, 0xec4899, 0x10b981];
+                const seat = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.05, 0.55, 1.0),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                );
+                seat.position.set(0, 0.72, -0.45);
+                vGroup.add(seat);
+
+                const hood = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.56, 0.56, 1.08, 8, 1, false, 0, Math.PI),
+                    new THREE.MeshStandardMaterial({ color: hoodColors[idx % hoodColors.length] })
+                );
+                hood.rotation.z = Math.PI / 2;
+                hood.position.set(0, 1.28, -0.5);
+                vGroup.add(hood);
+
+                const puller = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.36, 1.15, 0.28),
+                    new THREE.MeshStandardMaterial({ color: 0x0284c7 })
+                );
+                puller.position.set(0, 0.95, 0.65);
+                vGroup.add(puller);
+                radius = 1.05;
+            } else if (type === 'motorbike') {
+                const bike = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.48, 0.75, 1.75),
+                    new THREE.MeshStandardMaterial({ color: 0x0f172a })
+                );
+                bike.position.y = 0.55;
+                vGroup.add(bike);
+
+                const rider = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.44, 0.85, 0.42),
+                    new THREE.MeshStandardMaterial({ color: 0xf97316 })
+                );
+                rider.position.set(0, 1.18, -0.1);
+                vGroup.add(rider);
+                radius = 0.95;
+            } else {
+                // Toyota Corolla / Allion "Plastic" Private Sedan
+                const carPalette = [0xf8fafc, 0xcbd5e1, 0x1e293b, 0x991b1b, 0x1d4ed8];
+                const carCol = carPalette[idx % carPalette.length];
+                const lower = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.95, 0.68, 4.35),
+                    new THREE.MeshStandardMaterial({ color: carCol, metalness: 0.55, roughness: 0.22 })
+                );
+                lower.position.y = 0.62;
+                lower.castShadow = true;
+                vGroup.add(lower);
+
+                const cabin = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.72, 0.62, 2.25),
+                    glassMat
+                );
+                cabin.position.set(0, 1.22, -0.15);
+                vGroup.add(cabin);
+
+                const roof = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.68, 0.08, 1.85),
+                    new THREE.MeshStandardMaterial({ color: carCol, metalness: 0.55, roughness: 0.22 })
+                );
+                roof.position.set(0, 1.55, -0.15);
+                vGroup.add(roof);
+                radius = 1.85;
+            }
+
+            // Add 4 Wheels to Vehicle
+            [[-0.85, 0.35, 1.15], [0.85, 0.35, 1.15], [-0.85, 0.35, -1.15], [0.85, 0.35, -1.15]].forEach(([wx, wy, wz]) => {
+                const w = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.22, 10), wheelMat);
+                w.rotation.z = Math.PI / 2;
+                w.position.set(wx, wy, wz);
+                vGroup.add(w);
+            });
+
+            return { mesh: vGroup, radius };
+        }
+
+        function spawnDhakaTraffic() {
+            const types = [
+                'plastic_car', 'cng', 'rickshaw', 'leguna',
+                'motorbike', 'rival_bus', 'truck', 'brtc_double_decker'
+            ];
+            const laneOffsets = [-10.2, -6.4, -3.2, 3.2, 6.4, 10.2];
+
+            for (let i = 0; i < 175; i++) {
+                const type = types[i % types.length];
+                const roadX = GRID_X_COORDS[i % GRID_X_COORDS.length];
+                const laneOffset = laneOffsets[i % laneOffsets.length];
+                const baseDir = laneOffset < 0 ? 1 : -1;
+
+                const built = createRealisticDhakaVehicleMesh(type, i);
+                const x = roadX + laneOffset;
+                const z = -1200 + (i * 14.2) % 2400;
+
+                built.mesh.position.set(x, 0, z);
+                built.mesh.rotation.y = baseDir > 0 ? 0 : Math.PI;
+                scene.add(built.mesh);
+
+                let desiredSpeed = 0.36;
+                if (type === 'rickshaw') desiredSpeed = 0.16;
+                else if (type === 'cng' || type === 'leguna') desiredSpeed = 0.28;
+                else if (type === 'motorbike') desiredSpeed = 0.46;
+
+                aiVehicles.push({
+                    mesh: built.mesh,
+                    type,
+                    x,
+                    z,
+                    vx: 0,
+                    vz: baseDir * desiredSpeed,
+                    baseDir,
+                    desiredSpeed,
+                    radius: built.radius,
+                    scrapeCooldown: 0
+                });
+            }
+        }
+
+        // ============================================================================
+        // 8. PARTICLES (METALLIC SPARKS, BLACK DIESEL SMOKE & WATER SPLASH)
+        // ============================================================================
+        function emitParticle(x, y, z, kind) {
+            const isSpark = kind === 'spark';
+            const isSplash = kind === 'splash';
+            const radius = isSpark ? 0.14 : (isSplash ? 0.26 : 0.35);
+            const col = isSpark ? 0xfacc15 : (isSplash ? 0x7dd3fc : 0x1e293b);
+
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 6, 6),
+                new THREE.MeshBasicMaterial({
+                    color: col,
+                    transparent: true,
+                    opacity: 0.9
+                })
+            );
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+
+            particles.push({
+                mesh,
+                kind,
+                vx: (Math.random() - 0.5) * (isSpark || isSplash ? 0.48 : 0.12),
+                vy: isSplash ? (0.22 + Math.random() * 0.32) : (isSpark ? (0.12 + Math.random() * 0.25) : (0.08 + Math.random() * 0.08)),
+                vz: (Math.random() - 0.5) * (isSpark || isSplash ? 0.48 : 0.12),
+                life: isSpark ? 18 : (isSplash ? 24 : 32)
+            });
+        }
+
+        // ============================================================================
+        // 9. PHYSICS, COLLISIONS & GAME LOOP
+        // ============================================================================
+        function updatePhysicsAndWorld() {
+            // 1. Bus Acceleration, Braking & Steering
+            const boostMult = keys.shift ? 1.42 : 1.0;
+            if (keys.w) {
+                bus.speed = Math.min(bus.maxSpeed * boostMult, bus.speed + bus.accel * boostMult);
+            } else if (keys.s) {
+                bus.speed = Math.max(-0.55, bus.speed - bus.accel * 1.1);
+            } else {
+                bus.speed *= bus.friction;
+            }
+
+            if (keys.space) {
+                bus.speed *= 0.88;
+                if (Math.abs(bus.speed) > 0.25) {
+                    emitParticle(bus.x, 0.3, bus.z, 'smoke');
+                }
+            }
+
+            // Ackermann Turning & Body Roll Tilt
+            const targetSteer = keys.a ? 0.036 : (keys.d ? -0.036 : 0);
+            bus.steerAngle += (targetSteer - bus.steerAngle) * 0.22;
+
+            if (Math.abs(bus.speed) > 0.01) {
+                const dirSign = bus.speed >= 0 ? 1 : -1;
+                bus.angle += bus.steerAngle * dirSign * Math.min(1.2, Math.abs(bus.speed) * 1.6);
+            }
+
+            const targetRoll = -bus.steerAngle * bus.speed * 2.8;
+            bus.tiltRoll += (targetRoll - bus.tiltRoll) * 0.15;
+
+            const nextX = bus.x - Math.sin(bus.angle) * bus.speed;
+            const nextZ = bus.z - Math.cos(bus.angle) * bus.speed;
+
+            // 2. Check Solid Collisions (Buildings, Metro Pillars, Roundabouts, Overbridge Stairs)
+            let hitBuilding = false;
+            let hitObstacleLabel = null;
+
+            for (let i = 0; i < collidableBuildings.length; i++) {
+                const b = collidableBuildings[i];
+                if (nextX > b.minX && nextX < b.maxX && nextZ > b.minZ && nextZ < b.maxZ) {
+                    hitBuilding = true;
+                    break;
+                }
+            }
+
+            for (let i = 0; i < solidObstacles.length; i++) {
+                const obs = solidObstacles[i];
+                const dist = Math.hypot(nextX - obs.x, nextZ - obs.z);
+                if (dist < obs.radius + 1.85) {
+                    hitBuilding = true;
+                    hitObstacleLabel = obs.label;
+                    for (let s = 0; s < 12; s++) emitParticle(bus.x, 1.3, bus.z, 'spark');
+                    break;
+                }
+            }
+
+            if (hitBuilding || Math.abs(nextX) > WORLD_BOUND_X || Math.abs(nextZ) > WORLD_BOUND_Z) {
+                bus.speed = -bus.speed * 0.52;
+                camState.shake = 0.48;
+                playSoundEffect('scrape');
+                if (hitObstacleLabel) {
+                    bus.damageScore += 1800;
+                    showGTASubtitle(
+                        "হেল্পার মনা",
+                        `ওস্তাদ কী করলেন! সরাসরি ${hitObstacleLabel}-এ মাইরা দিলেন! সামনের বাম্পার বাঁকা হইয়া গেল!`,
+                        "#f87171"
+                    );
+                }
+            } else {
+                bus.x = nextX;
+                bus.z = nextZ;
+            }
+
+            // 2B. Check Water Bodies (Lakes & Pukurs) — Water Drag, Splash Particles & Helper Dialogue
+            if (waterSplashCooldown > 0) waterSplashCooldown--;
+            let inWaterBody = null;
+            for (let i = 0; i < DHAKA_WATER_BODIES.length; i++) {
+                const wb = DHAKA_WATER_BODIES[i];
+                if (
+                    Math.abs(bus.x - wb.x) < wb.w / 2 &&
+                    Math.abs(bus.z - wb.z) < wb.d / 2
+                ) {
+                    inWaterBody = wb;
+                    break;
+                }
+            }
+
+            if (inWaterBody) {
+                // Water drag slows the bus down and sinks the chassis slightly into the water
+                bus.speed *= 0.91;
+                if (Math.abs(bus.speed) > 0.04) {
+                    for (let sp = 0; sp < 4; sp++) {
+                        emitParticle(
+                            bus.x + (Math.random() - 0.5) * 3.2,
+                            0.45,
+                            bus.z + (Math.random() - 0.5) * 6.5,
+                            'splash'
+                        );
+                    }
+                }
+                if (waterSplashCooldown === 0 && Math.abs(bus.speed) > 0.08) {
+                    waterSplashCooldown = 140;
+                    playSoundEffect('bell');
+                    showGTASubtitle(
+                        "হেল্পার মনা",
+                        `হায় হায় ওস্তাদ! গাড়ি তো "${inWaterBody.name}"-এর পানির ভেতর নামায় দিলেন! ইঞ্জিনে পানি ঢুকতাছে, রিভার্সে ডাঙায় তোলেন!`,
+                        "#38bdf8"
+                    );
+                }
+            }
+
+            // Animate Water Ripples & Bobbing Wooden Boats
+            const waterWaveTime = Date.now() * 0.0025;
+            for (let i = 0; i < waterMeshes.length; i++) {
+                const wm = waterMeshes[i];
+                if (wm.isBoat) {
+                    wm.mesh.position.y = 0.12 + Math.sin(waterWaveTime + wm.idx) * 0.08;
+                    wm.mesh.rotation.z = Math.cos(waterWaveTime * 0.8 + wm.idx) * 0.05;
+                } else if (wm.mesh.material && wm.mesh.material.map) {
+                    wm.mesh.material.map.offset.x = (waterWaveTime * 0.08) % 1;
+                    wm.mesh.material.map.offset.y = (Math.sin(waterWaveTime * 0.4) * 0.04) % 1;
+                }
+            }
+
+            // 3. Check Destructible Roadside Props (Trees, Hawker Van Garis, Tong Tea Stalls)
+            for (let i = 0; i < destructibleProps.length; i++) {
+                const prop = destructibleProps[i];
+                if (prop.fallen) {
+                    if (prop.fallAngle < Math.PI / 2) {
+                        prop.fallAngle = Math.min(Math.PI / 2, prop.fallAngle + 0.12);
+                        prop.mesh.rotation.x = prop.fallAxisZ * prop.fallAngle;
+                        prop.mesh.rotation.z = -prop.fallAxisX * prop.fallAngle;
+                    } else {
+                        prop.respawnTimer--;
+                        if (prop.respawnTimer <= 0) {
+                            prop.fallen = false;
+                            prop.fallAngle = 0;
+                            prop.mesh.rotation.set(0, 0, 0);
+                        }
+                    }
+                    continue;
+                }
+
+                const dx = prop.x - bus.x;
+                const dz = prop.z - bus.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist < prop.radius + 1.75) {
+                    prop.fallen = true;
+                    prop.respawnTimer = 600;
+                    const len = dist || 1;
+                    prop.fallAxisX = dx / len;
+                    prop.fallAxisZ = dz / len;
+
+                    bus.speed *= 0.78;
+                    camState.shake = 0.35;
+                    playSoundEffect('scrape');
+
+                    for (let s = 0; s < 10; s++) emitParticle(prop.x, 1.4, prop.z, 'spark');
+
+                    if (prop.type === 'tree') {
+                        bus.damageScore += 1200;
+                        showGTASubtitle("হেল্পার মনা", "ওস্তাদ ফুটপাতের গাছ ফালায় দিলেন! ডানে কাটেন!", "#4ade80");
+                    } else if (prop.type === 'van_gari') {
+                        bus.damageScore += 3200;
+                        bus.heat = Math.min(100, bus.heat + 18);
+                        showGTASubtitle("ভ্যানওয়ালা হকার", `হায় হায়! আমার "${prop.title}" ভ্যান গাড়ি উল্টায় দিলো রে! ধর বাসটারে!`, "#fbbf24");
+                    } else if (prop.type === 'tea_stall') {
+                        bus.damageScore += 4000;
+                        bus.heat = Math.min(100, bus.heat + 22);
+                        showGTASubtitle("চায়ের দোকানদার", `ও ভাই! আমার "${prop.title}" এর কেটলি ও বিস্কুটের বয়াম ভেঙে দিলো!`, "#fb7185");
+                    }
+                }
+            }
+
+            // 4. Update Animated Pedestrians & Jaywalkers
+            const pedTime = Date.now() * 0.008;
+            for (let i = 0; i < pedestrians.length; i++) {
+                const ped = pedestrians[i];
+                if (ped.panicTimer > 0) {
+                    ped.panicTimer--;
+                    ped.x += ped.vx;
+                    ped.z += ped.vz;
+                } else if (ped.isJaywalker) {
+                    ped.x += ped.dir * 0.065;
+                    if (ped.x > ped.roadX + 14.5) ped.dir = -1;
+                    if (ped.x < ped.roadX - 14.5) ped.dir = 1;
+                    ped.mesh.rotation.y = ped.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+                } else {
+                    ped.z += ped.dir * 0.075;
+                    if (ped.z > 1200) ped.z = -1200;
+                    if (ped.z < -1200) ped.z = 1200;
+                    ped.mesh.rotation.y = ped.dir > 0 ? 0 : Math.PI;
+                }
+
+                const pdx = ped.x - bus.x;
+                const pdz = ped.z - bus.z;
+                const pDist = Math.hypot(pdx, pdz);
+                if (pDist < 3.6 && pDist > 0.01) {
+                    ped.vx = (pdx / pDist) * 0.42;
+                    ped.vz = (pdz / pDist) * 0.42;
+                    ped.panicTimer = 45;
+                    if (Math.abs(bus.speed) > 0.25 && Math.random() < 0.25) {
+                        bus.heat = Math.min(100, bus.heat + 8);
+                        const pedLines = [
+                            "ওই মিয়া! চোখ কপালে উঠছে নাকি? হাতের ইশারা দেখেন না!",
+                            "আস্তে টানেন ভাই! গায়ের ওপর উঠায় দিবেন নাকি!",
+                            "ফুটপাত দিয়াও শান্তিতে হাঁটার উপায় নাই ওস্তাদ!"
+                        ];
+                        showGTASubtitle("পথচারী", pedLines[Math.floor(Math.random() * pedLines.length)], "#38bdf8");
+                    }
+                }
+                ped.mesh.position.set(ped.x, Math.abs(Math.sin(pedTime + i)) * 0.08, ped.z);
+            }
+
+            // 5. Update Bus 3D Mesh Transform & Exhaust Smoke
+            if (busMeshGroup) {
+                busMeshGroup.position.set(bus.x, inWaterBody ? -0.42 : 0, bus.z);
+                busMeshGroup.rotation.y = bus.angle + Math.PI;
+                busMeshGroup.rotation.z = bus.tiltRoll;
+
+                busWheels.forEach(w => { w.rotation.x += bus.speed * 0.65; });
+                if (mudflapMesh) {
+                    mudflapMesh.rotation.x = Math.min(0.45, Math.abs(bus.speed) * 0.35);
+                }
+                if (helperArmMesh) {
+                    helperArmMesh.rotation.z += (0.6 - helperArmMesh.rotation.z) * 0.15;
+                }
+            }
+
+            if (Math.abs(bus.speed) > 0.2 && Math.random() < (keys.shift ? 0.85 : 0.3)) {
+                const rearX = bus.x + Math.sin(bus.angle) * 4.6;
+                const rearZ = bus.z + Math.cos(bus.angle) * 4.6;
+                emitParticle(rearX, 0.7, rearZ, 'smoke');
+            }
+
+            // 6. Animate Overhead Metro Trains
+            metroTrains.forEach(t => {
+                t.mesh.position.z += t.dir * t.speed;
+                if (t.mesh.position.z > 1200) t.mesh.position.z = -1200;
+                if (t.mesh.position.z < -1200) t.mesh.position.z = 1200;
+            });
+
+            // 7. Update AI Traffic, Multi-Lane Jam Bottlenecks & "Baaye Plastiik" Scraping Physics
+            for (let i = 0; i < aiVehicles.length; i++) {
+                const ai = aiVehicles[i];
+
+                // Dhaka Traffic Jam Queuing: Slow down if another vehicle or jaywalker is directly ahead in the same lane
+                let blockedAhead = false;
+                for (let j = 0; j < aiVehicles.length; j++) {
+                    if (i === j) continue;
+                    const other = aiVehicles[j];
+                    if (Math.abs(other.x - ai.x) < 2.1) {
+                        const dzAhead = (other.z - ai.z) * ai.baseDir;
+                        if (dzAhead > 0 && dzAhead < ai.radius + other.radius + 4.2) {
+                            blockedAhead = true;
+                            break;
+                        }
+                    }
+                }
+
+                const targetVz = blockedAhead ? (ai.baseDir * 0.05) : (ai.baseDir * ai.desiredSpeed);
+                ai.vz += (targetVz - ai.vz) * 0.08;
+                ai.x += ai.vx;
+                ai.z += ai.vz;
+                ai.vx *= 0.90;
+
+                if (ai.z > 1250) ai.z = -1250;
+                if (ai.z < -1250) ai.z = 1250;
+
+                if (ai.scrapeCooldown > 0) ai.scrapeCooldown--;
+
+                const dx = ai.x - bus.x;
+                const dz = ai.z - bus.z;
+                const dist = Math.hypot(dx, dz);
+                const minDist = ai.radius + 2.15;
+
+                if (dist < minDist && dist > 0.01) {
+                    const nx = dx / dist;
+                    const nz = dz / dist;
+                    ai.x += nx * 0.65;
+                    ai.vx += nx * 0.42;
+                    ai.vz += nz * 0.42;
+                    bus.speed *= 0.86;
+                    camState.shake = 0.32;
+
+                    for (let s = 0; s < 8; s++) emitParticle(ai.x, 1.1, ai.z, 'spark');
+
+                    if (ai.scrapeCooldown === 0) {
+                        ai.scrapeCooldown = 45;
+                        playSoundEffect('scrape');
+                        if (ai.type === 'plastic_car') {
+                            bus.damageScore += 2500;
+                            bus.heat = Math.min(100, bus.heat + 12);
+                            showGTASubtitle("গুলশানের কার মালিক", "এই মিয়া! আমার ৩৫ লাখ টাকার প্লাস্টিক গাড়ির রঙের বারোটা বাজায় দিলা! আমি লাইভে যাচ্ছি!", "#38bdf8");
+                        } else if (ai.type === 'leguna') {
+                            bus.damageScore += 1800;
+                            showGTASubtitle("লেগুনার ওস্তাদ", "ওই ভিক্টর ওস্তাদ! মিরপুর-ফার্মগেটের লেগুনা চাপাও ক্যান?! পিছনে হেল্পার ঝুলতাছে তো!", "#38bdf8");
+                        } else if (ai.type === 'rickshaw') {
+                            bus.damageScore += 900;
+                            bus.heat = Math.min(100, bus.heat + 15);
+                            showGTASubtitle("রিকশাওয়ালা মামা", "আরে ওস্তাদ! আমার রিকশার চাকা টাল কইরা দিলেন! বেল বাজাইতে দেখেন না?!", "#facc15");
+                        } else if (ai.type === 'truck') {
+                            bus.damageScore += 3200;
+                            showGTASubtitle("ট্রাক ড্রাইভার", "ওস্তাদ ট্রাকের সাথে ঘষাঘষি কইরেন না, মাল বোঝাই গাড়ি!", "#fb923c");
+                        } else if (ai.type === 'brtc_double_decker' || ai.type === 'rival_bus') {
+                            bus.damageScore += 3500;
+                            showGTASubtitle("হেল্পার মনা", "ওস্তাদ! ডাবল ডেকার ও আরেক বাসরে সাইড চাপায় দিছেন! যাত্রী সব আমাদের!", "#fbbf24");
+                        } else {
+                            bus.damageScore += 1200;
+                            showGTASubtitle("সিএনজি মামা", "ওস্তাদ খাঁচার ভেতর মানুষ আছে তো! একটু দেইখা চাপান!", "#4ade80");
+                        }
+                    }
+                }
+
+                ai.mesh.position.set(ai.x, 0, ai.z);
+            }
+
+            // 8. Check Passenger Bus Stop Zones
+            busStopZones.forEach(stop => {
+                if (stop.cooldown > 0) stop.cooldown--;
+                const d = Math.hypot(bus.x - stop.x, bus.z - stop.z);
+                if (d < 9.5 && Math.abs(bus.speed) < 0.14 && stop.cooldown === 0) {
+                    stop.cooldown = 240;
+                    const boarded = 4 + Math.floor(Math.random() * 5);
+                    const farePerPax = bus.isSittingService ? 30 : 15;
+                    const earned = boarded * farePerPax;
+                    bus.pocketMoney += earned;
+                    bus.passengers = Math.min(bus.maxPassengers, (bus.passengers % 42) + boarded);
+                    playSoundEffect('bell');
+                    showGTASubtitle(
+                        "হেল্পার মনা",
+                        `${stop.name.split('(')[0]} স্টপেজ থেকে ${boarded} জন যাত্রী উঠছে! জমা +৳${earned} (ভিতরে পুরা ফুটবল মাঠ খালি!)`,
+                        "#10b981"
+                    );
+                }
+            });
+
+            // 9. Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.mesh.position.x += p.vx;
+                p.mesh.position.y += p.vy;
+                p.mesh.position.z += p.vz;
+                p.life--;
+                p.mesh.material.opacity = Math.max(0, p.life / 30);
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+
+            bus.heat = Math.max(0, bus.heat - 0.015);
+            updateHUDAndCamera();
+        }
+
+        // ============================================================================
+        // 10. CAMERA, MINI-MAP RADAR & FULL-SCREEN DHAKA THANA MAP RENDERER
+        // ============================================================================
+        function updateHUDAndCamera() {
+            if (!camera) return;
+
+            if (camState.inGarage) {
+                const dist = 9.5;
+                const cx = bus.x + Math.sin(camState.yawOffset) * dist;
+                const cz = bus.z + Math.cos(camState.yawOffset) * dist;
+                camera.position.lerp(new THREE.Vector3(cx, 3.6 + camState.pitchOffset * 4, cz), 0.15);
+                camera.lookAt(bus.x, 2.2, bus.z);
+            } else {
+                const presets = [
+                    { dist: 16.5, height: 6.8, lookAhead: 7.0 }, // GTA Far Chase
+                    { dist: 11.5, height: 4.8, lookAhead: 6.0 }, // GTA Mid Chase
+                    { dist: 28.0, height: 26.0, lookAhead: 2.0 }, // Top-Down Classic
+                    { dist: -3.8, height: 2.8, lookAhead: 16.0 }  // Driver Hood Cam
+                ];
+                const p = presets[camState.mode];
+                const totalYaw = bus.angle + camState.yawOffset;
+
+                const targetCamX = bus.x + Math.sin(totalYaw) * p.dist;
+                const targetCamZ = bus.z + Math.cos(totalYaw) * p.dist;
+                const targetCamY = p.height + camState.pitchOffset * 6;
+
+                camera.position.lerp(new THREE.Vector3(targetCamX, Math.max(1.5, targetCamY), targetCamZ), 0.14);
+
+                if (camState.shake > 0.01) {
+                    camera.position.x += (Math.random() - 0.5) * camState.shake;
+                    camera.position.y += (Math.random() - 0.5) * camState.shake;
+                    camState.shake *= 0.85;
+                }
+
+                const lookX = bus.x - Math.sin(bus.angle) * p.lookAhead;
+                const lookZ = bus.z - Math.cos(bus.angle) * p.lookAhead;
+                camera.lookAt(lookX, 2.1, lookZ);
+            }
+
+            // Update DOM HUD Counters
+            document.getElementById('damageScoreEl').textContent = `৳ ${bus.damageScore.toLocaleString('bn-BD')}`;
+            document.getElementById('pocketMoneyEl').textContent = `৳ ${bus.pocketMoney.toLocaleString('bn-BD')}`;
+            document.getElementById('paxCountEl').textContent = `${bus.passengers}/${bus.maxPassengers}`;
+
+            const kmh = Math.round(Math.abs(bus.speed) * 68);
+            document.getElementById('speedNumEl').textContent = kmh;
+            document.getElementById('speedBarEl').style.width = `${Math.min(100, kmh)}%`;
+
+            const heatRounded = Math.round(bus.heat);
+            document.getElementById('heatValEl').textContent = `${heatRounded}%`;
+            document.getElementById('heatBarEl').style.width = `${heatRounded}%`;
+
+            // Find Current & Next Nearest Landmark on the Dhaka Map
+            let nearest = DHAKA_DISTRICTS[0];
+            let secondNearest = DHAKA_DISTRICTS[1];
+            let minDist = Infinity;
+            let secondDist = Infinity;
+
+            DHAKA_DISTRICTS.forEach(d => {
+                const dist = Math.hypot(bus.x - d.x, bus.z - d.z);
+                if (dist < minDist) {
+                    secondNearest = nearest;
+                    secondDist = minDist;
+                    nearest = d;
+                    minDist = dist;
+                } else if (dist < secondDist) {
+                    secondNearest = d;
+                    secondDist = dist;
+                }
+            });
+
+            document.getElementById('districtNameEl').textContent = nearest.name;
+            document.getElementById('nextLandmarkHintEl').textContent =
+                `পরবর্তী এলাকা: ${secondNearest.name.split('(')[0]} (${Math.round(secondDist)}m দূরে)`;
+
+            drawGTARadarMiniMap();
+        }
+
+        function drawGTARadarMiniMap() {
+            const c = document.getElementById('radarCanvas');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            const w = c.width;
+            const h = c.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const scale = 0.14;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, cx - 2, 0, Math.PI * 2);
+            ctx.clip();
+
+            ctx.fillStyle = "#0b1322";
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.translate(cx, cy);
+            ctx.rotate(bus.angle);
+
+            // Draw Thana Colored Zones on Radar
+            DHAKA_THANAS.forEach(th => {
+                ctx.fillStyle = th.color + "55";
+                ctx.fillRect(
+                    (th.x - th.w / 2 - bus.x) * scale,
+                    (th.z - th.d / 2 - bus.z) * scale,
+                    th.w * scale,
+                    th.d * scale
+                );
+            });
+
+            // Draw Dhaka Lakes & Pukurs (Blue Water Zones) on Mini-Map Radar
+            DHAKA_WATER_BODIES.forEach(wb => {
+                ctx.fillStyle = wb.type === 'pukur' ? "#0d9488cc" : "#0284c7cc";
+                ctx.fillRect(
+                    (wb.x - wb.w / 2 - bus.x) * scale,
+                    (wb.z - wb.d / 2 - bus.z) * scale,
+                    wb.w * scale,
+                    wb.d * scale
+                );
+            });
+
+            // Draw Roads on Radar
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 4;
+            GRID_X_COORDS.forEach(rx => {
+                ctx.beginPath();
+                ctx.moveTo((rx - bus.x) * scale, (-1300 - bus.z) * scale);
+                ctx.lineTo((rx - bus.x) * scale, (1250 - bus.z) * scale);
+                ctx.stroke();
+            });
+            GRID_Z_COORDS.forEach(rz => {
+                ctx.beginPath();
+                ctx.moveTo((-650 - bus.x) * scale, (rz - bus.z) * scale);
+                ctx.lineTo((750 - bus.x) * scale, (rz - bus.z) * scale);
+                ctx.stroke();
+            });
+
+            // Draw Cyan MRT-6 Metro Line
+            ctx.strokeStyle = "#38bdf8";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo((0 - bus.x) * scale, (-1250 - bus.z) * scale);
+            ctx.lineTo((0 - bus.x) * scale, (1150 - bus.z) * scale);
+            ctx.stroke();
+
+            // Draw Green Bus Stops
+            busStopZones.forEach(st => {
+                ctx.fillStyle = "#22c55e";
+                ctx.beginPath();
+                ctx.arc((st.x - bus.x) * scale, (st.z - bus.z) * scale, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw AI Traffic Blips
+            aiVehicles.forEach(ai => {
+                ctx.fillStyle = ai.type === 'plastic_car' ? "#facc15" : "#f87171";
+                ctx.fillRect((ai.x - bus.x) * scale - 1.5, (ai.z - bus.z) * scale - 1.5, 3, 3);
+            });
+
+            ctx.restore();
+
+            // Player Bus Arrow in Center
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 6);
+            ctx.lineTo(cx - 5, cy + 5);
+            ctx.lineTo(cx + 5, cy + 5);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Draw Full-Screen Dhaka City Corporation Thana Map (Matching Attached Image)
+        function drawFullDhakaMap() {
+            const c = document.getElementById('fullDhakaMapCanvas');
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            const w = c.width;
+            const h = c.height;
+
+            ctx.fillStyle = "#09111e";
+            ctx.fillRect(0, 0, w, h);
+
+            const mapX = (wx) => w / 2 + wx * 0.42;
+            const mapZ = (wz) => h / 2 + wz * 0.19;
+
+            // Rivers (Turag on West, Buriganga on South, Balu on East)
+            ctx.fillStyle = "#0284c7";
+            ctx.fillRect(0, 0, mapX(-720), h); // Turag River
+            ctx.fillRect(0, mapZ(1220), w, h - mapZ(1220)); // Buriganga River
+            ctx.fillRect(mapX(820), 0, w - mapX(820), h); // Balu River
+
+            ctx.fillStyle = "#bae6fd";
+            ctx.font = "bold 12px 'Hind Siliguri', sans-serif";
+            ctx.fillText("তুরাগ নদী (Turag River)", 14, h / 2);
+            ctx.fillText("বুড়িগঙ্গা নদী (Buriganga River • Bangladesh-China Friendship Bridge)", w / 2 - 140, h - 8);
+            ctx.fillText("বালু নদী (Balu River)", w - 125, h / 2);
+
+            // Thana Colored Blocks (Matching the Attached Dhaka Map)
+            DHAKA_THANAS.forEach(th => {
+                const x = mapX(th.x - th.w / 2);
+                const y = mapZ(th.z - th.d / 2);
+                const bw = th.w * 0.42;
+                const bh = th.d * 0.19;
+
+                ctx.fillStyle = th.color;
+                ctx.fillRect(x, y, bw, bh);
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, bw, bh);
+
+                ctx.fillStyle = "rgba(255,255,255,0.88)";
+                ctx.font = "bold 11px 'Hind Siliguri', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(th.name, x + bw / 2, y + bh / 2);
+            });
+
+            // Draw All Lakes & Pukurs on the Full Dhaka Map
+            DHAKA_WATER_BODIES.forEach(wb => {
+                const x = mapX(wb.x - wb.w / 2);
+                const y = mapZ(wb.z - wb.d / 2);
+                const bw = wb.w * 0.42;
+                const bh = wb.d * 0.19;
+
+                ctx.fillStyle = wb.type === 'pukur' ? "#14b8a6" : "#0ea5e9";
+                ctx.fillRect(x, y, bw, bh);
+                ctx.strokeStyle = "#bae6fd";
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(x, y, bw, bh);
+
+                ctx.fillStyle = "#e0f2fe";
+                ctx.font = "bold 9px 'Hind Siliguri', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("💧 " + wb.name.split('(')[0].trim(), x + bw / 2, y + bh / 2 + 3);
+            });
+
+            // Major Roads
+            ctx.strokeStyle = "#f8fafc";
+            ctx.lineWidth = 3;
+            GRID_X_COORDS.forEach(rx => {
+                ctx.beginPath();
+                ctx.moveTo(mapX(rx), mapZ(-1250));
+                ctx.lineTo(mapX(rx), mapZ(1150));
+                ctx.stroke();
+            });
+            GRID_Z_COORDS.forEach(rz => {
+                ctx.beginPath();
+                ctx.moveTo(mapX(-600), mapZ(rz));
+                ctx.lineTo(mapX(700), mapZ(rz));
+                ctx.stroke();
+            });
+
+            // Landmark Nodes (Click to Fast-Travel)
+            DHAKA_DISTRICTS.forEach(d => {
+                const px = mapX(d.x);
+                const py = mapZ(d.z);
+                ctx.fillStyle = "#22c55e";
+                ctx.beginPath();
+                ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#090d16";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.fillStyle = "#fef08a";
+                ctx.font = "bold 10px 'Hind Siliguri', sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText(d.name.split('(')[0].trim(), px + 7, py + 3);
+            });
+
+            // Current Bus Position Pulse
+            const bx = mapX(bus.x);
+            const bz = mapZ(bus.z);
+            ctx.fillStyle = "#f43f5e";
+            ctx.beginPath();
+            ctx.arc(bx, bz, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 12px 'Hind Siliguri', sans-serif";
+            ctx.fillText("🚌 আপনার বাস", bx + 10, bz + 4);
+        }
+
+        // ============================================================================
+        // 11. UI CONTROLS, INITIALIZATION & EVENT LISTENERS
+        // ============================================================================
+        function toggleFullMapModal() {
+            const modal = document.getElementById('fullMapModal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                drawFullDhakaMap();
+            }
+        }
+
+        function toggleGarageCamera() {
+            camState.inGarage = !camState.inGarage;
+            const panel = document.getElementById('garagePanel');
+            panel.classList.toggle('hidden', !camState.inGarage);
+            if (camState.inGarage) {
+                camState.yawOffset = 0.65;
+            } else {
+                camState.yawOffset = 0;
+            }
+        }
+
+        function setBusLivery(idx) {
+            bus.liveryIdx = idx;
+            refreshBusTextures();
+            showGTASubtitle("গ্যারাজ ওস্তাদ", `${BUS_LIVERIES[idx].name}-এর নতুন রঙ ও রুট বোর্ড লাগানো হইছে!`, "#38bdf8");
+        }
+
+        function cycleBusLiveryQuick() {
+            setBusLivery((bus.liveryIdx + 1) % BUS_LIVERIES.length);
+        }
+
+        function setBusSlogan(idx) {
+            bus.sloganIdx = idx;
+            refreshBusTextures();
+            showGTASubtitle("গ্যারাজ ওস্তাদ", `পিছনের নতুন বাণী: "${BACK_SLOGANS[idx]}"`, "#fbbf24");
+        }
+
+        function toggleDentVisuals() {
+            bus.showBattleScars = !bus.showBattleScars;
+            document.getElementById('dentBtnEl').textContent = bus.showBattleScars ? "চালু আছে" : "নতুন পেইন্ট";
+            refreshBusTextures();
+        }
+
+        function toggleCameraView() {
+            camState.inGarage = false;
+            document.getElementById('garagePanel').classList.add('hidden');
+            camState.mode = (camState.mode + 1) % 4;
+            const names = ["GTA Far Chase", "GTA Mid Chase", "Top-Down Map Cam", "Ostad Hood Cam"];
+            showGTASubtitle("ক্যামেরা ভিউ", names[camState.mode], "#38bdf8");
+        }
+
+        function cycleTimeOfDay() {
+            weatherMode = (weatherMode + 1) % 3;
+            const btn = document.getElementById('timeBtnEl');
+            if (weatherMode === 0) {
+                scene.background = new THREE.Color(0x38bdf8);
+                scene.fog.color.setHex(0x38bdf8);
+                btn.textContent = "☀️ দুপুর";
+            } else if (weatherMode === 1) {
+                scene.background = new THREE.Color(0xf97316);
+                scene.fog.color.setHex(0xf97316);
+                btn.textContent = "🌇 গোধূলি";
+            } else {
+                scene.background = new THREE.Color(0x090d16);
+                scene.fog.color.setHex(0x090d16);
+                btn.textContent = "🌙 রাত";
+            }
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            document.getElementById('muteBtnEl').textContent = isMuted ? "🔇" : "🔊";
+        }
+
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+                if (k === 'w' || e.key === 'ArrowUp') keys.w = true;
+                if (k === 's' || e.key === 'ArrowDown') keys.s = true;
+                if (k === 'a' || e.key === 'ArrowLeft') keys.a = true;
+                if (k === 'd' || e.key === 'ArrowRight') keys.d = true;
+                if (e.key === ' ') keys.space = true;
+                if (e.key === 'Shift') keys.shift = true;
+
+                if (k === '1') triggerMemeDialogue(1);
+                if (k === '2') triggerMemeDialogue(2);
+                if (k === '3') triggerMemeDialogue(3);
+                if (k === '4') triggerMemeDialogue(4);
+                if (k === 'g') toggleSittingService();
+                if (k === 'h') triggerHydraulicHorn();
+                if (k === 'c') toggleCameraView();
+                if (k === 'v') toggleGarageCamera();
+                if (k === 'm') toggleFullMapModal();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const k = e.key.toLowerCase();
+                if (k === 'w' || e.key === 'ArrowUp') keys.w = false;
+                if (k === 's' || e.key === 'ArrowDown') keys.s = false;
+                if (k === 'a' || e.key === 'ArrowLeft') keys.a = false;
+                if (k === 'd' || e.key === 'ArrowRight') keys.d = false;
+                if (e.key === ' ') keys.space = false;
+                if (e.key === 'Shift') keys.shift = false;
+            });
+
+            // Mouse Orbit Camera Look-Around
+            const container = document.getElementById('gameCanvasContainer');
+            container.addEventListener('mousedown', (e) => {
+                camState.isDragging = true;
+                camState.lastMouseX = e.clientX;
+                camState.lastMouseY = e.clientY;
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!camState.isDragging) return;
+                const dx = e.clientX - camState.lastMouseX;
+                const dy = e.clientY - camState.lastMouseY;
+                camState.lastMouseX = e.clientX;
+                camState.lastMouseY = e.clientY;
+                camState.yawOffset -= dx * 0.007;
+                camState.pitchOffset = Math.max(-0.1, Math.min(0.65, camState.pitchOffset + dy * 0.004));
+            });
+            window.addEventListener('mouseup', () => {
+                camState.isDragging = false;
+                if (!camState.inGarage) camState.yawOffset = 0;
+            });
+
+            // Click on Full Dhaka Map to Fast-Travel
+            const fullMapCanvas = document.getElementById('fullDhakaMapCanvas');
+            fullMapCanvas.addEventListener('click', (e) => {
+                const rect = fullMapCanvas.getBoundingClientRect();
+                const cx = (e.clientX - rect.left) * (fullMapCanvas.width / rect.width);
+                const cy = (e.clientY - rect.top) * (fullMapCanvas.height / rect.height);
+
+                const worldX = (cx - fullMapCanvas.width / 2) / 0.42;
+                const worldZ = (cy - fullMapCanvas.height / 2) / 0.19;
+
+                // Snap to nearest Dhaka District Node
+                let best = DHAKA_DISTRICTS[0];
+                let bestD = Infinity;
+                DHAKA_DISTRICTS.forEach(d => {
+                    const dist = Math.hypot(d.x - worldX, d.z - worldZ);
+                    if (dist < bestD) {
+                        bestD = dist;
+                        best = d;
+                    }
+                });
+
+                bus.x = best.x - 6;
+                bus.z = best.z + 18;
+                bus.speed = 0;
+                toggleFullMapModal();
+                showGTASubtitle("ফাস্ট ট্রাভেল (Fast Travel)", `বাস এখন ${best.name}-এ পৌঁছে গেছে!`, "#4ade80");
+            });
+
+            // Mobile Touch Buttons
+            const bindTouch = (id, keyName) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+                el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+            };
+            bindTouch('btnLeft', 'a');
+            bindTouch('btnRight', 'd');
+            bindTouch('btnGas', 'w');
+            bindTouch('btnBrake', 's');
+
+            window.addEventListener('resize', () => {
+                if (!camera || !renderer) return;
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function initThreeWorld() {
+            const container = document.getElementById('gameCanvasContainer');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x38bdf8);
+            scene.fog = new THREE.FogExp2(0x38bdf8, 0.0022);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 950);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.05;
+            container.appendChild(renderer.domElement);
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.78);
+            scene.add(hemiLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.15);
+            sunLight.position.set(160, 280, 140);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            scene.add(sunLight);
+
+            buildDhakaOpenWorldMap();
+            buildDetailedDesiBus();
+            spawnDhakaTraffic();
+            setupInputListeners();
+
+            showGTASubtitle(
+                "হেল্পার মনা",
+                "ওস্তাদ! ঢাকা সিটি কর্পোরেশনের পুরা থানা ম্যাপ রেডি! M চাপলে আপনার দেওয়া ম্যাপ দেখতে পারবেন!",
+                "#4ade80"
+            );
+
+            function animate() {
+                requestAnimationFrame(animate);
+                updatePhysicsAndWorld();
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        window.onload = initThreeWorld;
+    </script>
+</body>
+</html>
